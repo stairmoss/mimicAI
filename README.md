@@ -1,7 +1,7 @@
 # OmniVoice 🌍
 
 <p align="center">
-  <img width="200" height="200" alt="OmniVoice" src="assets/omnivoice.jpg" />
+  <img width="200" height="200" alt="OmniVoice" src="https://zhu-han.github.io/omnivoice/pics/omnivoice.jpg" />
 </p>
 
 <p align="center">
