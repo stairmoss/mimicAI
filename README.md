@@ -14,7 +14,7 @@
   <a href="https://zhu-han.github.io/omnivoice"><img src="https://img.shields.io/badge/GitHub.io-Demo_Page-blue?logo=GitHub&style=flat-square"></a>
 </p>
 
-OmniVoice is a state-of-the-art massive multilingual zero-shot text-to-speech (TTS) model supporting over 600 languages. Built on a novel diffusion language model-style architecture, it generates high-quality speech with superior inference speed, supporting voice cloning and voice design.
+OmniVoice is a state-of-the-art massively multilingual zero-shot text-to-speech (TTS) model supporting over 600 languages. Built on a novel diffusion language model-style architecture, it generates high-quality speech with superior inference speed, supporting voice cloning and voice design.
 
 **Contents**: [Key Features](#key-features) | [Installation](#installation) | [Quick Start](#quick-start) | [Python API](#python-api) | [Command-Line Tools](#command-line-tools) | [Training & Evaluation](#training--evaluation) | [Discussion](#discussion--communication) | [Citation](#citation)
 
@@ -25,7 +25,7 @@ OmniVoice is a state-of-the-art massive multilingual zero-shot text-to-speech (T
 - **Voice Design**: Control voices via assigned speaker attributes (gender, age, pitch, dialect/accent, whisper, etc.).
 - **Fine-grained Control**: Non-verbal symbols (e.g., `[laughter]`) and pronunciation correction via pinyin or phonemes.
 - **Fast Inference**: RTF as low as 0.025 (40x faster than real-time).
-- **Diffusion Language Model-Style Architecture**: A clean, streamlined, and scalable design that delivers both quality and speed.
+- **Diffusion Language Model-style Architecture**: A clean, streamlined, and scalable design that delivers both quality and speed.
 
 ---
 
@@ -135,6 +135,11 @@ audio = model.generate(
 torchaudio.save("out.wav", audio[0], 24000)
 ```
 
+> **Tips**
+>
+> - Use a 3–10 seconds reference audio clip. Longer audio slows down inference and may degrade cloning quality.
+> - For better results with Arabic numerals, normalize them to words first (e.g., "123" → "one hundred twenty-three") with text normalization tools (e.g., [WeTextProcessing](https://github.com/wenet-e2e/WeTextProcessing)).
+
 ### Voice Design
 
 Describe the desired voice with speaker attributes — no reference audio needed.
@@ -197,7 +202,7 @@ audio = model.generate(text="这批货物打ZHE2出售后他严重SHE2本了，�
 **Pronunciation control (English)**: Use [CMU pronunciation dictionary](https://svn.code.sf.net/p/cmusphinx/code/trunk/cmudict/cmudict.0.7a)  (uppercase, in brackets) to override default English pronunciations.
 
 ```python
-audio = model.generate(text="You could probably still make [IH1 T] look good.")
+audio = model.generate(text="He plays the [B EY1 S] guitar while catching a [B AE1 S] fish.")
 ```
 
 ---
