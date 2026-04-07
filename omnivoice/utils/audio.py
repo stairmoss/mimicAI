@@ -42,7 +42,9 @@ def load_audio(audio_path: str, sampling_rate: int):
         PyTorch tensor of shape (1, T)
     """
     try:
-        waveform, prompt_sampling_rate = torchaudio.load(audio_path)
+        waveform, prompt_sampling_rate = torchaudio.load(
+            audio_path, backend="soundfile"
+        )
     except (RuntimeError, OSError):
         # Fallback via pydub+ffmpeg for formats torchaudio can't handle
         aseg = AudioSegment.from_file(audio_path)
