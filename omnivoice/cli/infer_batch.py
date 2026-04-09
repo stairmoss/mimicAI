@@ -278,7 +278,7 @@ def cluster_samples_by_duration(
 ) -> List[List[Tuple]]:
     sample_with_duration = []
     for sample in samples:
-        save_name, ref_text, ref_audio_path, text, lang_id, lang_name, dur, spd = sample
+        save_name, ref_text, ref_audio_path, text, lang_id, lang_name, dur, spd, instruct = sample
         total_duration = estimate_sample_total_duration(
             duration_estimator,
             text,
@@ -321,7 +321,7 @@ def cluster_samples_by_batch_size(
     """Split samples into fixed-size batches, sorted by duration to minimize padding."""
     sample_with_duration = []
     for sample in samples:
-        save_name, ref_text, ref_audio_path, text, lang_id, lang_name, dur, spd = sample
+        save_name, ref_text, ref_audio_path, text, lang_id, lang_name, dur, spd, instruct = sample
         total_duration = estimate_sample_total_duration(
             duration_estimator,
             text,
@@ -359,9 +359,10 @@ def run_inference_batch(
     langs = []
     durations = []
     speeds = []
+    instructs = []
 
     for sample in batch_samples:
-        save_name, ref_text, ref_audio_path, text, lang_id, lang_name, dur, spd = sample
+        save_name, ref_text, ref_audio_path, text, lang_id, lang_name, dur, spd, instruct = sample
         save_names.append(save_name)
         ref_texts.append(ref_text)
         ref_audio_paths.append(ref_audio_path)
@@ -369,6 +370,7 @@ def run_inference_batch(
         langs.append(lang_id)
         durations.append(dur)
         speeds.append(spd)
+        instructs.append(instruct)
 
     start_time = time.time()
     audios = worker_model.generate(
@@ -378,6 +380,7 @@ def run_inference_batch(
         ref_text=ref_texts,
         duration=durations if any(d is not None for d in durations) else None,
         speed=speeds if any(s is not None for s in speeds) else None,
+        instruct=instructs if any(i is not None for i in instructs) else None,
         **gen_kwargs,
     )
     batch_synth_time = time.time() - start_time
@@ -443,6 +446,7 @@ def main():
                 lang_name,
                 s.get("duration"),
                 s.get("speed"),
+                s.get("instruct"),
             )
         )
 
