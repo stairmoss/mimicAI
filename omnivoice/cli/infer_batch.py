@@ -255,17 +255,34 @@ def process_init(rank_queue, model_checkpoint, warmup=0):
 def estimate_sample_total_duration(
     duration_estimator: RuleDurationEstimator,
     text: str,
-    ref_text: str,
-    ref_audio_path: str,
+    ref_text: Optional[str],
+    ref_audio_path: Optional[str],
     gen_duration: Optional[float] = None,
 ) -> float:
-    ref_wav = load_audio(ref_audio_path, SAMPLING_RATE)
-    ref_duration = ref_wav.shape[-1] / SAMPLING_RATE
+    """Estimate total duration (ref + generated) for a single sample.
 
+    When ``ref_audio_path`` is ``None`` (instruct / voice-design mode),
+    the reference duration is treated as 0 and only the estimated generated
+    duration contributes to the total.
+    """
     if gen_duration is None:
-        gen_duration = duration_estimator.estimate_duration(
-            text, ref_text, ref_duration, low_threshold=2.0
-        )
+        if ref_audio_path is not None:
+            ref_wav = load_audio(ref_audio_path, SAMPLING_RATE)
+            ref_duration = ref_wav.shape[-1] / SAMPLING_RATE
+            gen_duration = duration_estimator.estimate_duration(
+                text, ref_text, ref_duration, low_threshold=2.0
+            )
+        else:
+            ref_duration = 0
+            gen_duration = duration_estimator.estimate_duration(
+                text, "Nice to meet you.", 0.5, low_threshold=2.0
+            )
+    else:
+        if ref_audio_path is not None:
+            ref_wav = load_audio(ref_audio_path, SAMPLING_RATE)
+            ref_duration = ref_wav.shape[-1] / SAMPLING_RATE
+        else:
+            ref_duration = 0
 
     total_duration = ref_duration + gen_duration
     return total_duration
@@ -376,8 +393,8 @@ def run_inference_batch(
     audios = worker_model.generate(
         text=texts,
         language=langs,
-        ref_audio=ref_audio_paths,
-        ref_text=ref_texts,
+        ref_audio=ref_audio_paths if any(p is not None for p in ref_audio_paths) else None,
+        ref_text=ref_texts if any(t is not None for t in ref_texts) else None,
         duration=durations if any(d is not None for d in durations) else None,
         speed=speeds if any(s is not None for s in speeds) else None,
         instruct=instructs if any(i is not None for i in instructs) else None,
@@ -439,8 +456,8 @@ def main():
         samples.append(
             (
                 s["id"],
-                s["ref_text"],
-                s["ref_audio"],
+                s.get("ref_text"),
+                s.get("ref_audio"),
                 s["text"],
                 lang_id,
                 lang_name,
