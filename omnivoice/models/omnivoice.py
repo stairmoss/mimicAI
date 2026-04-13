@@ -1560,6 +1560,9 @@ def _combine_text(text, ref_text: Optional[str] = None) -> str:
     # filter out newline / carriage-return characters
     full_text = re.sub(r"[\r\n]+", "", full_text)
 
+    # replace Chinese parentheses with English ones
+    full_text = full_text.replace("\uff08", "(").replace("\uff09", ")")
+
     # collapse consecutive spaces / tabs into a single space
     full_text = re.sub(r"[ \t]+", " ", full_text)
 
