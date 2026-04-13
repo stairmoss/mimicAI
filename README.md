@@ -138,7 +138,10 @@ sf.write("out.wav", audio[0], 24000)
 > **Tips**
 >
 > - Use a 3–10 seconds reference audio clip. Longer audio slows down inference and may degrade cloning quality.
+> - For standard pronunciation, use a reference audio in the **same language** as the target speech. In cross-lingual voice cloning (i.e., the reference audio and target speech are in different languages), the generated speech will carry an accent from the reference audio's language.
 > - For better results with Arabic numerals, normalize them to words first (e.g., "123" → "one hundred twenty-three") with text normalization tools (e.g., [WeTextProcessing](https://github.com/wenet-e2e/WeTextProcessing)).
+>
+> For more tips, see [docs/tips.md](docs/tips.md).
 
 ### Voice Design
 
@@ -154,6 +157,8 @@ audio = model.generate(
     instruct="female, low pitch, british accent",
 )
 ```
+
+> **Note**: Voice design was trained on Chinese and English data only. It can generalize to other languages, but results can be unstable for some low-resource languages.
 
 See [docs/voice-design.md](docs/voice-design.md) for the full attribute
 reference, Chinese equivalents, and usage tips.
