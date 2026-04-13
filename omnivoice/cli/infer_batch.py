@@ -42,10 +42,11 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import List, Optional, Tuple
 
 import torch
-import torchaudio
 from tqdm import tqdm
 
 from omnivoice.models.omnivoice import OmniVoice
+import soundfile as sf
+
 from omnivoice.utils.audio import load_audio
 from omnivoice.utils.common import str2bool
 from omnivoice.utils.data_utils import read_test_list
@@ -79,11 +80,17 @@ def get_parser():
         type=str,
         required=True,
         help="Path to the JSONL file containing test samples. "
-        'Each line is a JSON object: {"id": "name", "text": "...", '
-        '"ref_audio": "/path.wav", "ref_text": "...", '
-        '"language_id": "en", "language_name": "English", '
-        '"duration": 10.0, "speed": 1.2}. '
-        "language_id, language_name, duration, and speed are optional.",
+        "Each line is a JSON object with the following fields: "
+        '"id" (str, required): unique name for the output file; '
+        '"text" (str, required): text to synthesize; '
+        '"ref_audio" (str): path to reference audio for voice cloning; '
+        '"ref_text" (str): transcript of the reference audio; '
+        '"instruct" (str): instruction for voice design (used when ref_audio is absent); '
+        '"language_id" (str): language code, e.g. "en"; '
+        '"language_name" (str): language name, e.g. "English"; '
+        '"duration" (float): target duration in seconds; '
+        '"speed" (float): speaking speed multiplier. '
+        "Only id and text are required; all other fields are optional.",
     )
     parser.add_argument(
         "--res_dir",
@@ -135,8 +142,7 @@ def get_parser():
         "--batch_duration",
         type=float,
         default=1000.0,
-        help="Maximum total duration (reference + generated) per batch (seconds). "
-        "Only effective for parallel_chunk / no chunk mode.",
+        help="Maximum total duration (reference + generated) per batch (seconds).",
     )
     parser.add_argument(
         "--batch_size",
@@ -239,7 +245,7 @@ def process_init(rank_queue, model_checkpoint, warmup=0):
         dummy_ref_audio = (
             torch.randn(1, SAMPLING_RATE),
             SAMPLING_RATE,
-        )  # 1s silence
+        )  # 1s dummy audio
         for i in range(warmup):
             worker_model.generate(
                 text=["hello"],
@@ -265,27 +271,40 @@ def estimate_sample_total_duration(
     the reference duration is treated as 0 and only the estimated generated
     duration contributes to the total.
     """
+    if ref_audio_path is not None:
+        ref_wav = load_audio(ref_audio_path, SAMPLING_RATE)
+        ref_duration = ref_wav.shape[-1] / SAMPLING_RATE
+    else:
+        ref_duration = 0
+
     if gen_duration is None:
         if ref_audio_path is not None:
-            ref_wav = load_audio(ref_audio_path, SAMPLING_RATE)
-            ref_duration = ref_wav.shape[-1] / SAMPLING_RATE
             gen_duration = duration_estimator.estimate_duration(
-                text, ref_text, ref_duration, low_threshold=2.0
+                text, ref_text or "", ref_duration, low_threshold=2.0
             )
         else:
-            ref_duration = 0
             gen_duration = duration_estimator.estimate_duration(
                 text, "Nice to meet you.", 0.5, low_threshold=2.0
             )
-    else:
-        if ref_audio_path is not None:
-            ref_wav = load_audio(ref_audio_path, SAMPLING_RATE)
-            ref_duration = ref_wav.shape[-1] / SAMPLING_RATE
-        else:
-            ref_duration = 0
 
     total_duration = ref_duration + gen_duration
     return total_duration
+
+
+def _sort_samples_by_duration(
+    samples: List[Tuple],
+    duration_estimator: RuleDurationEstimator,
+) -> List[Tuple[Tuple, float]]:
+    """Return (sample, total_duration) pairs sorted by duration descending."""
+    sample_with_duration = []
+    for sample in samples:
+        _, ref_text, ref_audio_path, text, _, _, dur, _, _ = sample
+        total_duration = estimate_sample_total_duration(
+            duration_estimator, text, ref_text, ref_audio_path, gen_duration=dur
+        )
+        sample_with_duration.append((sample, total_duration))
+    sample_with_duration.sort(key=lambda x: x[1], reverse=True)
+    return sample_with_duration
 
 
 def cluster_samples_by_duration(
@@ -293,19 +312,7 @@ def cluster_samples_by_duration(
     duration_estimator: RuleDurationEstimator,
     batch_duration: float,
 ) -> List[List[Tuple]]:
-    sample_with_duration = []
-    for sample in samples:
-        save_name, ref_text, ref_audio_path, text, lang_id, lang_name, dur, spd, instruct = sample
-        total_duration = estimate_sample_total_duration(
-            duration_estimator,
-            text,
-            ref_text,
-            ref_audio_path,
-            gen_duration=dur,
-        )
-        sample_with_duration.append((sample, total_duration))
-
-    sample_with_duration.sort(key=lambda x: x[1], reverse=True)
+    sample_with_duration = _sort_samples_by_duration(samples, duration_estimator)
     batches = []
     current_batch = []
     current_total_duration = 0.0
@@ -336,19 +343,7 @@ def cluster_samples_by_batch_size(
     batch_size: int,
 ) -> List[List[Tuple]]:
     """Split samples into fixed-size batches, sorted by duration to minimize padding."""
-    sample_with_duration = []
-    for sample in samples:
-        save_name, ref_text, ref_audio_path, text, lang_id, lang_name, dur, spd, instruct = sample
-        total_duration = estimate_sample_total_duration(
-            duration_estimator,
-            text,
-            ref_text,
-            ref_audio_path,
-            gen_duration=dur,
-        )
-        sample_with_duration.append((sample, total_duration))
-
-    sample_with_duration.sort(key=lambda x: x[1], reverse=True)
+    sample_with_duration = _sort_samples_by_duration(samples, duration_estimator)
     sorted_samples = [s for s, _ in sample_with_duration]
 
     batches = [
@@ -405,7 +400,7 @@ def run_inference_batch(
     results = []
     for save_name, audio in zip(save_names, audios):
         save_path = os.path.join(res_dir, save_name + ".wav")
-        torchaudio.save(save_path, audio, worker_model.sampling_rate)
+        sf.write(save_path, audio, worker_model.sampling_rate)
         audio_duration = audio.shape[-1] / worker_model.sampling_rate
         results.append(
             (
@@ -478,18 +473,32 @@ def main():
         ) as executor:
             futures = []
 
-            # parallel_chunk / no chunk
             logging.info("Running batch inference")
 
+            # Split samples by mode (voice-clone vs non-voice-clone) before
+            # clustering so that each batch is homogeneous.  Mixing ref_audio
+            # and non-ref_audio samples in the same batch would crash in
+            # generate() → create_voice_clone_prompt().
+            clone_samples = [s for s in samples if s[2] is not None]
+            other_samples = [s for s in samples if s[2] is None]
+
             duration_estimator = RuleDurationEstimator()
-            if args.batch_size > 0:
-                batches = cluster_samples_by_batch_size(
-                    samples, duration_estimator, args.batch_size
-                )
-            else:
-                batches = cluster_samples_by_duration(
-                    samples, duration_estimator, args.batch_duration
-                )
+            batches = []
+            for subset in (clone_samples, other_samples):
+                if not subset:
+                    continue
+                if args.batch_size > 0:
+                    batches.extend(
+                        cluster_samples_by_batch_size(
+                            subset, duration_estimator, args.batch_size
+                        )
+                    )
+                else:
+                    batches.extend(
+                        cluster_samples_by_duration(
+                            subset, duration_estimator, args.batch_duration
+                        )
+                    )
 
             args_dict = vars(args)
 
