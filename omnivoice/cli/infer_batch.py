@@ -28,7 +28,7 @@ Test list format (JSONL, one JSON object per line):
     Required fields: "id", "text"
     Voice cloning:   "ref_audio", "ref_text"
     Voice design:    "instruct"
-    Optional:        "language_id", "language_name", "duration", "speed"
+    Optional:        "language_id", "duration", "speed"
 """
 
 import argparse
@@ -87,7 +87,6 @@ def get_parser():
         '"ref_text" (str): transcript of the reference audio; '
         '"instruct" (str): instruction for voice design (used when ref_audio is absent); '
         '"language_id" (str): language code, e.g. "en"; '
-        '"language_name" (str): language name, e.g. "English"; '
         '"duration" (float): target duration in seconds; '
         '"speed" (float): speaking speed multiplier. '
         "Only id and text are required; all other fields are optional.",
@@ -200,8 +199,7 @@ def get_parser():
         type=str,
         default=None,
         help="Language id to use when test_list JSONL entries do not contain "
-        "language_id/language_name fields. If provided, both language_id and "
-        "language_name will be set to this value.",
+        "a language_id field.",
     )
     return parser
 
@@ -298,7 +296,7 @@ def _sort_samples_by_duration(
     """Return (sample, total_duration) pairs sorted by duration descending."""
     sample_with_duration = []
     for sample in samples:
-        _, ref_text, ref_audio_path, text, _, _, dur, _, _ = sample
+        _, ref_text, ref_audio_path, text, _, dur, _, _ = sample
         total_duration = estimate_sample_total_duration(
             duration_estimator, text, ref_text, ref_audio_path, gen_duration=dur
         )
@@ -374,7 +372,7 @@ def run_inference_batch(
     instructs = []
 
     for sample in batch_samples:
-        save_name, ref_text, ref_audio_path, text, lang_id, lang_name, dur, spd, instruct = sample
+        save_name, ref_text, ref_audio_path, text, lang_id, dur, spd, instruct = sample
         save_names.append(save_name)
         ref_texts.append(ref_text)
         ref_audio_paths.append(ref_audio_path)
@@ -442,12 +440,7 @@ def main():
     samples_raw = read_test_list(args.test_list)
     samples = []
     for s in samples_raw:
-        if args.lang_id is not None:
-            lang_id = args.lang_id
-            lang_name = args.lang_id
-        else:
-            lang_id = s.get("language_id")
-            lang_name = s.get("language_name")
+        lang_id = args.lang_id if args.lang_id is not None else s.get("language_id")
         samples.append(
             (
                 s["id"],
@@ -455,7 +448,6 @@ def main():
                 s.get("ref_audio"),
                 s["text"],
                 lang_id,
-                lang_name,
                 s.get("duration"),
                 s.get("speed"),
                 s.get("instruct"),

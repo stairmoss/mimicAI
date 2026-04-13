@@ -34,6 +34,10 @@ def read_test_list(path):
         id, text, ref_audio, ref_text, instruct,
         language_id, language_name, duration, speed
 
+    Note: ``language_name`` is only used by evaluation scripts (under
+    ``omnivoice/eval/``) for grouping and reporting results.  The model
+    itself only consumes ``language_id``.
+
     Returns a list of dicts.
     """
     path = Path(path)
