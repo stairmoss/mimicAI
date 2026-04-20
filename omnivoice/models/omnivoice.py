@@ -1213,7 +1213,7 @@ class OmniVoice(PreTrainedModel):
         timesteps = _get_time_steps(
             t_start=0.0,
             t_end=1.0,
-            num_step=gen_config.num_step + 1,
+            num_step=gen_config.num_step,
             t_shift=gen_config.t_shift,
         ).tolist()
         schedules = []
