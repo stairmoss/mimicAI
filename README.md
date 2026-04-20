@@ -299,18 +299,8 @@ You can also scan the QR code to join our wechat group or follow our wechat offi
 
 ## Community Projects
 
-- **[omnivoice-server](https://github.com/maemreyo/omnivoice-server)** —
-  OpenAI-compatible HTTP server for serving OmniVoice via `/v1/audio/speech`.
-  Supports voice profiles for persistent cloning, sentence-level streaming,
-  and optional Bearer auth.
-
-- **[omnivoice-rs](https://github.com/FerrisMind/omnivoice-rs)** —
-  GPU-first Rust workspace for OmniVoice inference, parity validation, CLI
-  execution, and an OpenAI-compatible HTTP server built with Candle.
-
-- **[omnivoice-trtllm](https://github.com/tlitech/omnivoice-trtllm)** —
-  Deploy OmniVoice TTS model using TensorRT-LLM and Triton Inference Server
-  on Modal, faster than PyTorch.
+OmniVoice is supported by a growing ecosystem of community projects.
+Explore them in [Community Projects](docs/community-projects.md).
 
 ---
 
