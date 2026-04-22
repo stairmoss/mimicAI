@@ -19,6 +19,9 @@ If you have a project you'd like to add, please open a PR.
   TTS, STT, and STS library built on Apple's MLX framework. Supports
   OmniVoice among other models for efficient speech processing on Apple Silicon.
 
+- **[RealtimeTTS](https://github.com/KoljaB/RealtimeTTS)** —
+  Converts text to speech in realtime. Supports OmniVoice as a TTS engine.
+
 - **[TTS-WebUI](https://github.com/rsxdalv/TTS-WebUI)** —
   Gradio web UI for multiple TTS models. Supports OmniVoice as one of its backends.
 
