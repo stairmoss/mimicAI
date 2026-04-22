@@ -41,7 +41,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchaudio
-from torch.nn.attention.flex_attention import create_block_mask
+
+try:
+    from torch.nn.attention.flex_attention import create_block_mask
+
+    _flex_attention_available = True
+except ImportError:
+    _flex_attention_available = False
 from transformers import (
     AutoFeatureExtractor,
     AutoModel,
@@ -193,6 +199,7 @@ def _resolve_model_path(name_or_path: str) -> str:
 class OmniVoice(PreTrainedModel):
     _supports_flex_attn = True
     _supports_flash_attn_2 = True
+    _supports_sdpa = True
     config_class = OmniVoiceConfig
 
     def __init__(self, config: OmniVoiceConfig, llm: Optional[PreTrainedModel] = None):
@@ -385,6 +392,12 @@ class OmniVoice(PreTrainedModel):
         inputs_embeds = self._prepare_embed_inputs(input_ids, audio_mask)
 
         if attention_mask is None and document_ids is not None:
+            if not _flex_attention_available:
+                raise RuntimeError(
+                    "flex_attention is not available in the current environment. "
+                    "If you do not need flex_attention, set "
+                    '"attn_implementation": "sdpa" in your training config.'
+                )
             attention_mask = create_block_mask(
                 _get_packed_mask(
                     document_ids[0].to(inputs_embeds.device),

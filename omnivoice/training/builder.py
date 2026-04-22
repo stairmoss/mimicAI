@@ -22,8 +22,14 @@ from a ``TrainingConfig``. Called by ``omnivoice.cli.train`` to set up training.
 
 Key functions:
 - ``build_model_and_tokenizer()``: Loads the model and text tokenizer.
-- ``build_dataloaders()``: Builds packed train/eval data loaders
-  from a data config JSON.
+- ``build_dataloaders()``: Builds train/eval data loaders from a data config JSON.
+  The batching strategy is chosen based on ``TrainingConfig.attn_implementation``:
+
+  - ``"flex_attention"``: sequence packing via ``PackingIterableDataset`` +
+    ``PackingDataCollator``. Batch shape is ``[1, C, batch_tokens]``.
+  - other (e.g. ``"sdpa"``): length-grouped padding via
+    ``StreamLengthGroupDataset`` + ``PaddingDataCollator``. Batch shape
+    is ``[B, C, max_len]`` where B ≥ 1 and max_len ≤ batch_tokens.
 """
 
 import logging
@@ -36,8 +42,8 @@ from transformers import AutoConfig, AutoModel, AutoTokenizer
 from transformers import logging as hf_logging
 from transformers.trainer_utils import seed_worker
 
-from omnivoice.data.batching import PackingIterableDataset
-from omnivoice.data.collator import PackingDataCollator
+from omnivoice.data.batching import PackingIterableDataset, StreamLengthGroupDataset
+from omnivoice.data.collator import PackingDataCollator, PaddingDataCollator
 from omnivoice.data.dataset import WebDatasetReader, prepare_data_manifests_from_json
 from omnivoice.data.processor import OmniVoiceSampleProcessor
 from omnivoice.models.omnivoice import OmniVoice, OmniVoiceConfig, _resolve_model_path
@@ -81,7 +87,7 @@ def build_model_and_tokenizer(
         logger.info(f"Loading weights from {config.init_from_checkpoint}")
         model = OmniVoice.from_pretrained(
             config.init_from_checkpoint,
-            attn_implementation="flex_attention",
+            attn_implementation=config.attn_implementation,
             dtype=torch.float32,
             train=True,
         )
@@ -102,7 +108,7 @@ def build_model_and_tokenizer(
 
         llm = AutoModel.from_pretrained(
             resolved_llm,
-            attn_implementation="flex_attention",
+            attn_implementation=config.attn_implementation,
             dtype=torch.float32,
         )
 
@@ -125,7 +131,15 @@ def build_model_and_tokenizer(
 def build_dataloaders(
     config: TrainingConfig, tokenizer: AutoTokenizer
 ) -> Tuple[DataLoader, DataLoader]:
-    """Setup Data Pipeline: Manifests -> WDS -> Packing -> Loaders."""
+    """Setup Data Pipeline: Manifests -> WDS -> Batching -> Loaders.
+
+    Batching strategy depends on ``config.attn_implementation``:
+    - ``"flex_attention"``: sequence packing (PackingIterableDataset +
+      PackingDataCollator). All samples are concatenated into one long sequence.
+    - other (e.g. ``"sdpa"``): length-grouped padding
+      (LengthGroupedIterableDataset + PaddingDataCollator). Samples with
+      similar token lengths are batched together and padded to the same length.
+    """
     logger.info("Initializing Data Readers...")
 
     processor = OmniVoiceSampleProcessor(
@@ -146,19 +160,44 @@ def build_dataloaders(
     )
     raw_train_ds = WebDatasetReader(manifests=train_manifests, evaluation=False)
 
-    train_dataset = PackingIterableDataset(raw_train_ds, processor, config.batch_tokens)
+    use_packing = config.attn_implementation == "flex_attention"
 
-    collate_fn = PackingDataCollator(processor, config.batch_tokens)
+    if use_packing:
+        train_dataset = PackingIterableDataset(
+            raw_train_ds, processor, config.batch_tokens
+        )
+        collate_fn = PackingDataCollator(processor, config.batch_tokens)
+    else:
+        train_dataset = StreamLengthGroupDataset(
+            raw_train_ds,
+            batch_duration=config.batch_tokens,
+            min_length=config.min_sample_tokens,
+            max_length=config.max_sample_tokens,
+            max_sample=config.max_batch_size,
+            processor=processor,
+            length_fn=lambda s: s["length"],
+        )
+        collate_fn = PaddingDataCollator(processor, config.batch_tokens)
+
+    logger.info(
+        "Using %s (attn_implementation=%s)",
+        "sequence packing" if use_packing else "length-grouped padding",
+        config.attn_implementation,
+    )
 
     init_fn = partial(
         seed_worker,
         num_workers=config.num_workers,
-        rank=torch.distributed.get_rank() if torch.distributed.is_initialized() else 0,
+        rank=(
+            torch.distributed.get_rank()
+            if torch.distributed.is_initialized()
+            else 0
+        ),
     )
 
     train_loader = DataLoader(
         train_dataset,
-        batch_size=None,  # Each item is a batch packed to the target batch_tokens
+        batch_size=None,
         num_workers=config.num_workers,
         collate_fn=collate_fn,
         worker_init_fn=init_fn,
@@ -168,11 +207,26 @@ def build_dataloaders(
 
     eval_loader = None
     if dev_manifests:
-        raw_dev_ds = WebDatasetReader(manifests=dev_manifests, evaluation=True)
-        dev_dataset = PackingIterableDataset(raw_dev_ds, processor, config.batch_tokens)
+        raw_dev_ds = WebDatasetReader(
+            manifests=dev_manifests, evaluation=True
+        )
+        if use_packing:
+            dev_dataset = PackingIterableDataset(
+                raw_dev_ds, processor, config.batch_tokens
+            )
+        else:
+            dev_dataset = StreamLengthGroupDataset(
+                raw_dev_ds,
+                batch_duration=config.batch_tokens,
+                min_length=config.min_sample_tokens,
+                max_length=config.max_sample_tokens,
+                max_sample=config.max_batch_size,
+                processor=processor,
+                length_fn=lambda s: s["length"],
+            )
         eval_loader = DataLoader(
             dev_dataset,
-            batch_size=None,  # Each item is a batch packed to the target batch_tokens
+            batch_size=None,  # Each item is already a collated batch
             num_workers=1,
             collate_fn=collate_fn,
             pin_memory=True,

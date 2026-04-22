@@ -76,6 +76,12 @@ class TrainingConfig:
     allow_tf32: bool = True
     use_deepspeed: bool = False
     deepspeed_config: Optional[str] = None
+    attn_implementation: str = "flex_attention"
+
+    # Length-grouped batching (only used when attn_implementation != "flex_attention")
+    max_sample_tokens: int = 2000
+    min_sample_tokens: int = 50
+    max_batch_size: int = 64
 
     # Logging
     logging_steps: int = 100
