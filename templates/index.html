@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="MimicAI — AI chatbot with neural text-to-speech in 20+ languages. Record a voice sample and hear AI replies spoken aloud.">
+  <title>MimicAI — Voice AI Chatbot</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>">
+</head>
+<body>
+  <div class="app">
+
+    <!-- ───── Sidebar ───── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <span class="logo-icon">✦</span>
+          <span class="logo-text">MimicAI</span>
+        </div>
+        <button class="new-chat-btn" id="new-chat-btn" title="Start new chat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-title">Voice Profiles</div>
+        <ul class="voice-list" id="voice-list">
+          <li class="voice-empty">
+            <div class="voice-empty-icon">🎤</div>
+            <div>No voice profiles yet.</div>
+            <div style="font-size:11px;margin-top:2px;">Record a sample to enable TTS</div>
+          </li>
+        </ul>
+        <button class="sidebar-btn" id="record-voice-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          Record Voice Sample
+        </button>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="footer-badge">MimicAI v2.0</div>
+        <div class="footer-info">F5-TTS · OmniVoice · Real Voice Clone</div>
+      </div>
+    </aside>
+
+    <!-- ───── Main Chat Area ───── -->
+    <main class="main">
+
+      <!-- Header -->
+      <div class="header">
+        <div class="header-left">
+          <button class="toggle-sidebar-btn" id="toggle-sidebar" title="Toggle sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <span class="header-title">MimicAI Chat</span>
+        </div>
+        <div class="header-right">
+          <label class="toggle-pill" title="Use OmniVoice Lite instead of full OmniVoice">
+            <input type="checkbox" id="lightweight-toggle">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-label">Lightweight</span>
+          </label>
+          <label class="toggle-pill" title="Automatically speak AI replies">
+            <input type="checkbox" id="autospeak-toggle">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-label">Auto Speak</span>
+          </label>
+          <div class="voice-selector-wrap">
+            <svg class="voice-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            <select class="voice-select" id="voice-select" title="TTS voice">
+              <option value="">Text Only</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Messages -->
+      <div class="chat-area" id="chat-area">
+        <div class="messages-container" id="messages">
+
+          <!-- Welcome Screen -->
+          <div class="welcome" id="welcome-screen">
+            <div class="welcome-glow"></div>
+            <div class="welcome-icon">✦</div>
+            <h1>MimicAI</h1>
+            <p>Chat with AI and hear responses spoken aloud. Record a voice sample in the sidebar, then start chatting.</p>
+            <div class="welcome-pills">
+              <div class="welcome-pill" data-prompt="Tell me a joke">💬 Tell me a joke</div>
+              <div class="welcome-pill" data-prompt="Explain quantum physics simply">⚛️ Explain quantum physics</div>
+              <div class="welcome-pill" data-prompt="Write a short poem about the ocean">🌊 Write a poem</div>
+              <div class="welcome-pill" data-prompt="What can you do?">✨ What can you do?</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Input Bar -->
+      <div class="input-bar">
+        <div class="input-wrapper" id="input-wrapper">
+          <textarea id="chat-input" rows="1" placeholder="Send a message…" autocomplete="off" spellcheck="true"></textarea>
+          <button class="send-btn" id="send-btn" title="Send message">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+        <div class="input-hint">Enter to send · Shift+Enter for new line</div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ───── Recording Modal ───── -->
+  <div class="modal-overlay" id="record-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+          Record Voice Sample
+        </div>
+        <button class="modal-close" id="modal-close-btn">✕</button>
+      </div>
+
+      <p class="modal-desc">Record 5–30 seconds of clear speech. This sample is stored as a reference for TTS language detection and is played back via neural synthesis.</p>
+
+      <div class="modal-field">
+        <label for="voice-name">Profile Name</label>
+        <input type="text" id="voice-name" placeholder="e.g., My Voice" maxlength="50">
+      </div>
+
+      <div class="modal-field">
+        <label for="voice-language">Language</label>
+        <select id="voice-language">
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+          <option value="ml">Malayalam</option>
+          <option value="ta">Tamil</option>
+          <option value="te">Telugu</option>
+          <option value="kn">Kannada</option>
+          <option value="bn">Bengali</option>
+          <option value="mr">Marathi</option>
+          <option value="gu">Gujarati</option>
+          <option value="pa">Punjabi</option>
+          <option value="ur">Urdu</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+          <option value="es">Spanish</option>
+          <option value="pt">Portuguese</option>
+          <option value="ru">Russian</option>
+          <option value="ja">Japanese</option>
+          <option value="ko">Korean</option>
+          <option value="zh">Chinese</option>
+          <option value="ar">Arabic</option>
+        </select>
+      </div>
+
+      <div class="record-area">
+        <div class="record-visualizer" id="record-visualizer">
+          <div class="record-bars" id="record-bars">
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <button class="record-btn" id="record-btn" title="Start / Stop recording">
+          <svg class="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          <svg class="stop-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+        </button>
+        <div class="record-timer" id="record-timer">0:00</div>
+        <div class="record-status" id="record-status">Click the mic to start recording</div>
+      </div>
+
+      <div class="audio-preview" id="audio-preview"></div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="modal-cancel-btn">Cancel</button>
+        <button class="btn btn-primary" id="save-voice-btn" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save Voice Profile
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── Toast Container ───── -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
