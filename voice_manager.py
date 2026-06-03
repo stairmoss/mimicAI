@@ -199,15 +199,21 @@ class VoiceManager:
             try:
                 with open(meta_path) as f:
                     meta = json.load(f)
-                p = profile_dir / meta.get("audio_file", "reference.wav")
+                audio_file = meta.get("audio_file", "reference.wav")
+                p = (profile_dir / audio_file).resolve()
+                p.relative_to(profile_dir.resolve())
                 if p.exists():
                     return str(p)
-            except Exception:
+            except (ValueError, Exception):
                 pass
         for ext in ("wav", "webm", "mp3", "ogg", "flac"):
-            p = profile_dir / f"reference.{ext}"
-            if p.exists():
-                return str(p)
+            try:
+                p = (profile_dir / f"reference.{ext}").resolve()
+                p.relative_to(profile_dir.resolve())
+                if p.exists():
+                    return str(p)
+            except (ValueError, Exception):
+                pass
         return None
 
     def get_voice_metadata(self, profile_id: str) -> Optional[Dict]:
