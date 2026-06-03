@@ -317,6 +317,25 @@ Explore them in [Community Projects](docs/community-projects.md).
 
 ---
 
+## Security & Configuration
+
+MimicAI can be configured using the following environment variables:
+
+| Environment Variable | Description | Default |
+| -------------------- | ----------- | ------- |
+| `HACKCLUB_API_KEY`   | Hack Club API token for fallback LLM generation | (fallback hardcoded key) |
+| `CORS_ALLOWED_ORIGINS`| Comma-separated list of origins allowed to call the API | `*` |
+| `HOST`               | Server binding IP address | `0.0.0.0` |
+| `PORT`               | Server binding port | `5001` |
+
+### Path Traversal Protection
+All endpoints validating voice profile IDs (`profile_id`/`voice_id`) enforce strict alphanumeric validation (`^[a-zA-Z0-9_-]+$`) to prevent directory traversal attacks.
+
+### Temp File Cleanup
+The audio synthesis pipeline guarantees the deletion of any transient/intermediate `.wav` files using try-finally execution guards to prevent storage exhaustion issues.
+
+---
+
 ## Disclaimer
 
 This project is intended only for academic research purposes. Users are strictly prohibited from using this model for unauthorized voice cloning, voice impersonation, fraud, scams, or any other illegal or unethical activities. All users shall ensure full compliance with applicable local laws, regulations, and ethical standards. The developers assume no liability for any misuse of this model and advocate for responsible AI development and use, encouraging the community to uphold safety and ethical principles in AI research and applications.
