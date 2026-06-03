@@ -12,11 +12,17 @@ import time
 import uuid
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
-
+ 
 import numpy as np
 import torch
 
 logger = logging.getLogger(__name__)
+
+def _is_safe_id(profile_id: Optional[str]) -> bool:
+    if not profile_id:
+        return False
+    import re
+    return bool(re.match(r"^[a-zA-Z0-9_-]+$", profile_id))
 
 VOICES_DIR = Path(__file__).parent / "voices"
 SHARD_DIR = Path(os.path.expanduser("~/.clonemodel_lite/shards"))
@@ -165,6 +171,9 @@ class VoiceManager:
         return meta
 
     def delete_voice(self, profile_id: str) -> bool:
+        if not _is_safe_id(profile_id):
+            logger.warning(f"Unsafe profile_id rejected in delete_voice: {profile_id}")
+            return False
         profile_dir = self.voices_dir / profile_id
         if not profile_dir.exists():
             return False
@@ -179,6 +188,9 @@ class VoiceManager:
         return True
 
     def get_reference_audio_path(self, profile_id: str) -> Optional[str]:
+        if not _is_safe_id(profile_id):
+            logger.warning(f"Unsafe profile_id rejected in get_reference_audio_path: {profile_id}")
+            return None
         profile_dir = self.voices_dir / profile_id
         if not profile_dir.exists():
             return None
@@ -199,6 +211,9 @@ class VoiceManager:
         return None
 
     def get_voice_metadata(self, profile_id: str) -> Optional[Dict]:
+        if not _is_safe_id(profile_id):
+            logger.warning(f"Unsafe profile_id rejected in get_voice_metadata: {profile_id}")
+            return None
         meta_path = self.voices_dir / profile_id / "metadata.json"
         if not meta_path.exists():
             return None
@@ -225,9 +240,15 @@ class VoiceManager:
         self.last_tts_engine = "none"
 
         if voice_id:
-            profile = self.get_voice_metadata(voice_id) or {}
-            if not language or language == "auto":
-                language = profile.get("language", "en")
+            if not _is_safe_id(voice_id):
+                logger.warning(f"Unsafe voice_id rejected in generate_tts: {voice_id}")
+                if not allow_fallback:
+                    return None
+                voice_id = None
+            else:
+                profile = self.get_voice_metadata(voice_id) or {}
+                if not language or language == "auto":
+                    language = profile.get("language", "en")
 
         # 1. Clone path
         if prefer_clone and voice_id:
