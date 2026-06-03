@@ -28,7 +28,7 @@ from voice_manager import VoiceManager
 # ── Configuration ──────────────────────────────────────────────────────────────
 
 HACKCLUB_API_URL = "https://ai.hackclub.com/proxy/v1/chat/completions"
-HACKCLUB_API_KEY = ""
+HACKCLUB_API_KEY = os.environ.get("HACKCLUB_API_KEY", "")
 CHAT_MODEL = "qwen/qwen3-32b"
 
 SYSTEM_PROMPT = (
