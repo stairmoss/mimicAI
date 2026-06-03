@@ -134,6 +134,8 @@ def clone_voice(
             except Exception:
                 pass
 
+    base_wav_path = None
+    out_path = None
     try:
         # Step 1: Load converter (if not skipping)
         converter = None
@@ -155,7 +157,6 @@ def clone_voice(
             _progress("done", 4, 4, "Speech generated via custom model!")
             with open(base_wav_path, "rb") as f:
                 wav_bytes = f.read()
-            _cleanup_temp(base_wav_path)
             return wav_bytes
 
         # Step 3: Extract speaker embeddings
@@ -165,7 +166,6 @@ def clone_voice(
 
         if source_se is None or target_se is None:
             logger.error("Failed to extract speaker embeddings")
-            _cleanup_temp(base_wav_path)
             return None
 
         # Step 4: Convert voice color
@@ -187,14 +187,16 @@ def clone_voice(
         with open(out_path, "rb") as f:
             wav_bytes = f.read()
 
-        _cleanup_temp(base_wav_path)
-        _cleanup_temp(out_path)
-
         return wav_bytes
 
     except Exception as exc:
         logger.error(f"Voice cloning error: {exc}", exc_info=True)
         return None
+    finally:
+        if base_wav_path:
+            _cleanup_temp(base_wav_path)
+        if out_path:
+            _cleanup_temp(out_path)
 
 
 _kokoro_model = None
