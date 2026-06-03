@@ -59,7 +59,7 @@ def process_audio():
             # 2. Transcribe with Whisper to get timestamps
             logging.info("  Transcribing audio and detecting segments...")
             result = model.transcribe(str(base_wav), word_timestamps=False)
-            
+
             # 3. Load audio with pydub for slicing
             full_audio = AudioSegment.from_wav(str(base_wav))
 
@@ -76,18 +76,18 @@ def process_audio():
 
                 # Slice audio
                 chunk = full_audio[start_ms:end_ms]
-                
+
                 # Save chunk
                 clip_filename = f"clip_{clip_counter:04d}.wav"
                 chunk_path = WAVS_DIR / clip_filename
                 chunk.export(str(chunk_path), format="wav")
-                
+
                 # Piper format: filename|transcription
                 # Using csv writer to ensure correct formatting without escaping issues
                 metadata_entries.append((clip_filename, text))
-                
+
                 clip_counter += 1
-            
+
             # Clean up temp file
             if base_wav != audio_file and base_wav.exists():
                 base_wav.unlink()

@@ -313,13 +313,13 @@ def synthesize(
             wf.setsampwidth(2)
             wf.setframerate(voice.config.sample_rate)
             t0 = time.monotonic()
-            
+
             sentences = split_text(clean_text)
             for sentence in sentences:
                 # Piper performs better on short sentences
                 for chunk in voice.synthesize(sentence, syn_config=syn_cfg):
                     wf.writeframes(chunk.audio_int16_bytes)
-                    
+
             elapsed = time.monotonic() - t0
 
         wav_bytes = buf.getvalue()
@@ -366,15 +366,15 @@ def is_available(model_path: Optional[str] = None) -> bool:
     """Return True if piper-tts is importable and a valid model (+ json config) exists."""
     try:
         import piper  # noqa: F401
-        
+
         if model_path is not None:
             target = Path(model_path)
         else:
             target = _find_default_model()
-            
+
         if target is None:
             return False
-            
+
         # Piper requires both the .onnx file and .onnx.json config
         json_path = Path(f"{target}.json")
         return target.exists() and json_path.exists()

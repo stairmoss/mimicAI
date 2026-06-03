@@ -12,7 +12,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
- 
+
 import numpy as np
 import torch
 
@@ -458,7 +458,7 @@ class VoiceManager:
             if not piper_tts.is_available(model_path):
                 logger.warning(f"Piper model not available for {model_path or 'default'}")
                 return None
-                
+
             return piper_tts.synthesize(
                 text=text[:500],
                 model_path=model_path,
