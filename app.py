@@ -70,7 +70,10 @@ FALLBACK_LANGUAGES = [
 ]
 
 app = Flask(__name__)
-CORS(app)
+cors_origins = os.environ.get("CORS_ALLOWED_ORIGINS", "*")
+if cors_origins != "*":
+    cors_origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
+CORS(app, resources={r"/api/*": {"origins": cors_origins}})
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
 voice_manager = VoiceManager()
