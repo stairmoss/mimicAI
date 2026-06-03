@@ -46,6 +46,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("mimicai")
 
+FLASK_DEBUG = os.environ.get("FLASK_DEBUG", "0") == "1" or os.environ.get("FLASK_ENV", "production") == "development"
+
+def _error_response(exc, message):
+    logger.error(f"{message}: {exc}", exc_info=True)
+    err_msg = str(exc) if FLASK_DEBUG else f"Internal server error: {message.lower()}"
+    return jsonify({"error": err_msg}), 500
+
 FALLBACK_LANGUAGES = [
     {"id": "en", "name": "English"},
     {"id": "hi", "name": "Hindi"},
@@ -250,8 +257,7 @@ def text_to_speech():
             allow_fallback=allow_fallback if not prefer_clone else True,
         )
     except Exception as exc:
-        logger.error(f"TTS error: {exc}")
-        return jsonify({"error": str(exc)}), 500
+        return _error_response(exc, "TTS generation failed")
 
     if not audio_bytes:
         return jsonify({"error": "TTS generation failed"}), 500
@@ -303,7 +309,8 @@ def tts_async_start():
                 _update_job(job_id, status="error", error="TTS generation failed")
         except Exception as exc:
             logger.error(f"Async TTS worker error: {exc}", exc_info=True)
-            _update_job(job_id, status="error", error=str(exc))
+            err_msg = str(exc) if FLASK_DEBUG else "Internal server error during synthesis"
+            _update_job(job_id, status="error", error=err_msg)
 
     t = threading.Thread(target=_worker, daemon=True)
     t.start()
@@ -404,8 +411,7 @@ def record_voice():
         )
         return jsonify({"success": True, "voice": profile})
     except Exception as exc:
-        logger.error(f"Voice creation error: {exc}")
-        return jsonify({"error": str(exc)}), 500
+        return _error_response(exc, "Voice creation failed")
 
 
 @app.route("/api/voices/<voice_id>/delete", methods=["DELETE"])
@@ -434,8 +440,7 @@ def preview_voice(voice_id):
             allow_fallback=True,
         )
     except Exception as exc:
-        logger.error(f"Voice preview error: {exc}")
-        return jsonify({"error": str(exc)}), 500
+        return _error_response(exc, "Voice preview failed")
 
     if not audio_bytes:
         return jsonify({"error": "Voice preview failed"}), 500
