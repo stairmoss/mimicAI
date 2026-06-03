@@ -478,12 +478,13 @@ if __name__ == "__main__":
     print(f"  Shards  : {voice_manager.voices_dir.parent / '..'}")
     print("=" * 50 + "\n")
 
+    host = os.environ.get("HOST", "0.0.0.0")
     try:
-        app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+        app.run(host=host, port=port, debug=False, threaded=True)
     except OSError as exc:
         if "Address already in use" in str(exc):
             alt = port + 1
             print(f"Port {port} busy, trying {alt}…")
-            app.run(host="0.0.0.0", port=alt, debug=False, threaded=True)
+            app.run(host=host, port=alt, debug=False, threaded=True)
         else:
             raise
