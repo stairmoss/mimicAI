@@ -1,5 +1,0 @@
-Collecting piper-tts==1.2.0
-  Downloading piper_tts-1.2.0-py3-none-any.whl.metadata (776 bytes)
-Collecting onnxruntime
-  Using cached onnxruntime-1.25.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (5.3 kB)
-INFO: pip is looking at multiple versions of piper-tts to determine which version is compatible with other requirements. This could take a while.
