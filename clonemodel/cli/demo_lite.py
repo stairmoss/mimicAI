@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(prog="omnivoice-demo-lite", description="OmniVoice Lite demo")
+    parser = argparse.ArgumentParser(prog="MimicAI-demo-lite", description="MimicVoice Lite demo")
     parser.add_argument("--shard-dir", default=os.path.expanduser("~/.clonemodel_lite/shards"))
     parser.add_argument("--ip", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=7860)
@@ -58,8 +58,8 @@ def build_demo(model):
         except Exception as e:
             return None, f"Error: {type(e).__name__}: {e}"
 
-    with gr.Blocks(title="OmniVoice Lite") as demo:
-        gr.Markdown("# OmniVoice Lite — Ultra-Low-Memory Voice Cloning\n**600+ languages** | **4GB RAM** | **Layer-wise inference** | **Accent-aware cloning**")
+    with gr.Blocks(title="MimicVoice Lite") as demo:
+        gr.Markdown("# MimicVoice Lite — Ultra-Low-Memory Voice Cloning\n**600+ languages** | **4GB RAM** | **Layer-wise inference** | **Accent-aware cloning**")
 
         with gr.Row():
             with gr.Column(scale=1):
@@ -98,9 +98,9 @@ def main(argv=None):
         from clonemodel.lite.setup_lite import run_setup
         run_setup(output_dir=shard_dir)
 
-    logger.info(f"Loading OmniVoice Lite from {shard_dir}...")
-    from clonemodel.lite.omnivoice_lite import OmniVoiceLite
-    model = OmniVoiceLite.from_pretrained(shard_dir, max_memory_gb=args.max_memory)
+    logger.info(f"Loading MimicVoice Lite from {shard_dir}...")
+    from clonemodel.lite.mimicvoice_lite import MimicVoiceLite
+    model = MimicVoiceLite.from_pretrained(shard_dir, max_memory_gb=args.max_memory)
 
     try:
         import psutil

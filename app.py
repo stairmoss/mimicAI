@@ -4,7 +4,7 @@
 A ChatGPT-styled web interface that integrates:
 - Chatbot powered by Hack Club API (qwen/qwen3-32b)
 - Voice recording and storage
-- Neural TTS via F5-TTS / OmniVoice voice cloning
+- Neural TTS via F5-TTS / MimicVoice voice cloning
 - Async TTS jobs with Server-Sent Events progress streaming
 - 600+ language support
 - Optimised for i3 / 4GB RAM
@@ -529,27 +529,27 @@ def get_status():
     except Exception:
         status["openvoice"] = {"available": False, "loaded": False}
 
-    # 4. OmniVoice Full
+    # 4. MimicVoice Full
     try:
-        from clonemodel import OmniVoice  # noqa: F401
-        from voice_manager import _omnivoice_full_model
-        status["omnivoice"] = {
+        from clonemodel import MimicVoice  # noqa: F401
+        from voice_manager import _MimicAI_full_model
+        status["mimicvoice"] = {
             "available": True,
-            "loaded": _omnivoice_full_model is not None
+            "loaded": _MimicAI_full_model is not None
         }
     except Exception:
-        status["omnivoice"] = {"available": False, "loaded": False}
+        status["mimicvoice"] = {"available": False, "loaded": False}
 
-    # 5. OmniVoice Lite
+    # 5. MimicVoice Lite
     try:
-        from clonemodel.lite.omnivoice_lite import OmniVoiceLite  # noqa: F401
-        from voice_manager import _omnivoice_model
-        status["omnivoice_lite"] = {
+        from clonemodel.lite.mimicvoice_lite import MimicVoiceLite  # noqa: F401
+        from voice_manager import _MimicAI_model
+        status["mimicvoice_lite"] = {
             "available": True,
-            "loaded": _omnivoice_model is not None
+            "loaded": _MimicAI_model is not None
         }
     except Exception:
-        status["omnivoice_lite"] = {"available": False, "loaded": False}
+        status["mimicvoice_lite"] = {"available": False, "loaded": False}
 
     return jsonify(status)
 
@@ -573,7 +573,7 @@ def _detect_mimetype(data: bytes) -> str:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5001"))
     print("\n" + "=" * 50)
-    print("  ✦  MimicAI — Voice Chatbot")
+    print("  M  MimicAI — Voice Chatbot")
     print("=" * 50)
     print(f"  Server  : http://localhost:{port}")
     print(f"  Voices  : {voice_manager.voices_dir}")

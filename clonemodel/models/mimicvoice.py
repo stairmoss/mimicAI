@@ -13,19 +13,7 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License.
 
-"""Core OmniVoice model implementation.
-
-Defines the ``OmniVoice`` model class, generation config, and inference pipeline.
-This is the main entry point for both inference and training:
-
-- **Inference**: ``OmniVoice.from_pretrained()`` loads the model, then
-  ``model.generate()`` supports voice cloning, voice design, and auto voice.
-- **Training**: ``model.forward()`` computes the training loss; the model is
-  built and used by ``omnivoice.training.builder`` and ``omnivoice.training.trainer``.
-
-"""
 
 import difflib
 import logging

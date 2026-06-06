@@ -18,7 +18,7 @@
 """Dataset and data-loading utilities for training and evaluation.
 
 Provides WebDataset-based iterable datasets, manifest parsing, and audio/token
-loading. Used by ``omnivoice.training.builder.build_dataloaders()`` to construct
+loading. Used by ``MimicAI.training.builder.build_dataloaders()`` to construct
 train and eval data loaders.
 
 Key functions:
@@ -31,7 +31,7 @@ Key classes:
 - ``MuxWebDatasetReader``: Multiplexes multiple WebDataset readers for
     multilingual data.
 - ``JsonlDatasetReader``: Reads audio/text pairs from a JSONL manifest file.
-    Used by data processing scripts (e.g. ``omnivoice/scripts/``).
+    Used by data processing scripts (e.g. ``MimicAI/scripts/``).
 - ``SampleDecoder``: Decodes individual samples (audio or tokens + labels).
 """
 
@@ -46,7 +46,7 @@ import torch
 import torch.distributed as dist
 import webdataset as wds
 
-from omnivoice.utils.audio import load_audio, load_audio_bytes
+from clonemodel.utils.audio import load_audio, load_audio_bytes
 from torch.utils.data import IterableDataset
 
 

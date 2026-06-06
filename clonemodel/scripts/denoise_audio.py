@@ -71,10 +71,10 @@ import webdataset as wds
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
-from omnivoice.data.batching import StreamLengthGroupDataset
-from omnivoice.data.dataset import JsonlDatasetReader, WebDatasetReader
+from clonemodel.data.batching import StreamLengthGroupDataset
+from clonemodel.data.dataset import JsonlDatasetReader, WebDatasetReader
 import soundfile as sf
-from omnivoice.utils.common import str2bool
+from clonemodel.utils.common import str2bool
 
 SIDON_INPUT_SAMPLE_RATE = 16_000
 SIDON_OUTPUT_SAMPLE_RATE = 48_000
@@ -627,7 +627,7 @@ class _GPUWorker:
             [
                 sys.executable,
                 "-m",
-                "omnivoice.scripts.denoise_audio",
+                "MimicAI.scripts.denoise_audio",
                 "--_subprocess_worker",
             ],
             stdin=subprocess.PIPE,

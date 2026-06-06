@@ -15,15 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Training sample processor for OmniVoice.
+"""Training sample processor for MimicVoice.
 
 Converts raw audio/text samples into model-ready tensors: applies prompt/mask
 tokenization, randomly drops conditioning, and injects language/instruct tokens.
-Used by ``omnivoice.training.builder`` to build the data pipeline.
+Used by ``MimicAI.training.builder`` to build the data pipeline.
 
 Contains two processor classes:
-- ``OmniVoiceSampleProcessor``: Full processor used for training.
-- ``OmniVoiceSimpleSampleProcessor``: Simplified processor (not used for training).
+- ``MimicVoiceSampleProcessor``: Full processor used for training.
+- ``MimicVoiceSimpleSampleProcessor``: Simplified processor (not used for training).
 """
 
 import random
@@ -32,7 +32,7 @@ from typing import Any, Dict
 import torch
 
 
-class OmniVoiceSampleProcessor:
+class MimicVoiceSampleProcessor:
     """
     Handles the logic of processing a raw sample into tensors
     (masking, tokenization, etc.).
@@ -172,13 +172,13 @@ class OmniVoiceSampleProcessor:
         return return_dict
 
 
-class OmniVoiceSimpleSampleProcessor:
+class MimicVoiceSimpleSampleProcessor:
     """
     Handles the logic of processing a raw sample into tensors
     (masking, tokenization, etc.).
     This is a simpler version that does not include language, instructions,
         or denoising prompts.
-    We do not use it for training as OmniVoiceSampleProcessor can cover this case.
+    We do not use it for training as MimicVoiceSampleProcessor can cover this case.
     We keep it as a reference implementation for users to understand the basic logics.
     """
 

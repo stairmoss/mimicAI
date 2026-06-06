@@ -1,21 +1,21 @@
-"""Single-item inference CLI for OmniVoice.
+"""Single-item inference CLI for MimicVoice.
 
 Generates audio from a single text input using voice cloning,
 voice design, or auto voice.
 
 Usage:
     # Voice cloning
-    omnivoice-infer --model k2-fsa/OmniVoice \
+    MimicAI-infer --model k2-fsa/MimicVoice \
         --text "Hello, this is a text for text-to-speech." \
         --ref_audio ref.wav --ref_text "Reference transcript." --output out.wav
 
     # Voice design
-    omnivoice-infer --model k2-fsa/OmniVoice \
+    MimicAI-infer --model k2-fsa/MimicVoice \
         --text "Hello, this is a text for text-to-speech." \
         --instruct "male, British accent" --output out.wav
 
     # Auto voice
-    omnivoice-infer --model k2-fsa/OmniVoice \
+    MimicAI-infer --model k2-fsa/MimicVoice \
         --text "Hello, this is a text for text-to-speech." --output out.wav
 """
 
@@ -26,8 +26,8 @@ import torch
 
 import soundfile as sf
 
-from omnivoice.models.omnivoice import OmniVoice
-from omnivoice.utils.common import str2bool
+from clonemodel.models.mimicvoice import MimicVoice
+from clonemodel.utils.common import str2bool
 
 
 def get_best_device():
@@ -41,13 +41,13 @@ def get_best_device():
 
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="OmniVoice single-item inference",
+        description="MimicVoice single-item inference",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "--model",
         type=str,
-        default="k2-fsa/OmniVoice",
+        default="k2-fsa/MimicVoice",
         help="Model checkpoint path or HuggingFace repo id.",
     )
     parser.add_argument(
@@ -127,7 +127,7 @@ def main():
 
     device = args.device or get_best_device()
     logging.info(f"Loading model from {args.model} on {device} ...")
-    model = OmniVoice.from_pretrained(
+    model = MimicVoice.from_pretrained(
         args.model, device_map=device, dtype=torch.float16
     )
 

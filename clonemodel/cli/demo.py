@@ -15,12 +15,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Gradio demo for OmniVoice.
+Gradio demo for MimicVoice.
 
 Supports voice cloning and voice design.
 
 Usage:
-    omnivoice-demo --model /path/to/checkpoint --port 8000
+    MimicAI-demo --model /path/to/checkpoint --port 8000
 """
 
 import argparse
@@ -31,8 +31,8 @@ import gradio as gr
 import numpy as np
 import torch
 
-from omnivoice import OmniVoice, OmniVoiceGenerationConfig
-from omnivoice.utils.lang_map import LANG_NAMES, lang_display_name
+from clonemodel import MimicVoice, MimicVoiceGenerationConfig
+from clonemodel.utils.lang_map import LANG_NAMES, lang_display_name
 
 
 def get_best_device():
@@ -112,13 +112,13 @@ _ATTR_INFO = {
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="omnivoice-demo",
-        description="Launch a Gradio demo for OmniVoice.",
+        prog="MimicAI-demo",
+        description="Launch a Gradio demo for MimicVoice.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
         "--model",
-        default="k2-fsa/OmniVoice",
+        default="k2-fsa/MimicVoice",
         help="Model checkpoint path or HuggingFace repo id.",
     )
     parser.add_argument(
@@ -158,7 +158,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def build_demo(
-    model: OmniVoice,
+    model: MimicVoice,
     checkpoint: str,
     generate_fn=None,
 ) -> gr.Blocks:
@@ -184,7 +184,7 @@ def build_demo(
         if not text or not text.strip():
             return None, "Please enter the text to synthesize."
 
-        gen_config = OmniVoiceGenerationConfig(
+        gen_config = MimicVoiceGenerationConfig(
             num_step=int(num_step or 32),
             guidance_scale=float(guidance_scale) if guidance_scale is not None else 2.0,
             denoise=bool(denoise) if denoise is not None else True,
@@ -303,17 +303,17 @@ def build_demo(
             )
         return ns, gs, dn, sp, du, pp, po
 
-    with gr.Blocks(theme=theme, css=css, title="OmniVoice Demo") as demo:
+    with gr.Blocks(theme=theme, css=css, title="MimicVoice Demo") as demo:
         gr.Markdown(
             """
-# OmniVoice Demo
+# MimicVoice Demo
 
 State-of-the-art text-to-speech model for **600+ languages**, supporting:
 
 - **Voice Clone** — Clone any voice from a reference audio
 - **Voice Design** — Create custom voices with speaker attributes
 
-Built with [OmniVoice](https://github.com/k2-fsa/OmniVoice)
+Built with [MimicVoice](https://github.com/k2-fsa/MimicVoice)
 by Xiaomi AI Lab Next-gen Kaldi team.
 """
         )
@@ -524,7 +524,7 @@ def main(argv=None) -> int:
         parser.print_help()
         return 0
     logging.info(f"Loading model from {checkpoint}, device={device} ...")
-    model = OmniVoice.from_pretrained(
+    model = MimicVoice.from_pretrained(
         checkpoint,
         device_map=device,
         dtype=torch.float16,

@@ -15,14 +15,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Training CLI for OmniVoice.
+"""Training CLI for MimicVoice.
 
 Launches distributed training via HuggingFace Accelerate.
 Supports pre-training on Emilia data and finetuning on custom data.
 
 Usage:
     accelerate launch --gpu_ids 0,1,2,3 --num_processes 4 \\
-        -m omnivoice.cli.train \\
+        -m MimicAI.cli.train \\
         --train_config train_config.json \\
         --data_config data_config.json \\
         --output_dir output/
@@ -32,13 +32,13 @@ See examples/run_emilia.sh and examples/run_finetune.sh for full pipelines.
 
 import argparse
 
-from omnivoice.training.builder import build_dataloaders, build_model_and_tokenizer
-from omnivoice.training.config import TrainingConfig
-from omnivoice.training.trainer import OmniTrainer
+from clonemodel.training.builder import build_dataloaders, build_model_and_tokenizer
+from clonemodel.training.config import TrainingConfig
+from clonemodel.training.trainer import OmniTrainer
 
 
 def main():
-    parser = argparse.ArgumentParser(description="OmniVoice Training Entry Point")
+    parser = argparse.ArgumentParser(description="MimicVoice Training Entry Point")
     parser.add_argument(
         "--train_config", type=str, required=True, help="Path to config JSON"
     )

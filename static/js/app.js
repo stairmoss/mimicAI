@@ -297,7 +297,7 @@ function addMsg(role, text, streaming = false) {
   const el = document.createElement('div');
   el.className = `message ${isAi ? 'ai' : 'user'}`;
   el.innerHTML = `
-    <div class="message-avatar">${isAi ? '✦' : '👤'}</div>
+    <div class="message-avatar">${isAi ? 'AI' : 'U'}</div>
     <div class="message-content">
       <div class="message-bubble">${isAi ? md(text) : esc(text)}</div>
       <div class="message-actions"></div>
@@ -322,18 +322,18 @@ function addActions(el, text) {
   // Listen button
   const tb = document.createElement('button');
   tb.className = 'msg-action-btn tts-btn';
-  tb.innerHTML = '🔊 Listen';
+  tb.innerHTML = 'Listen';
   tb.onclick = () => playTts(text, tb);
   a.appendChild(tb);
 
   // Copy button
   const cb = document.createElement('button');
   cb.className = 'msg-action-btn';
-  cb.innerHTML = '📋 Copy';
+  cb.innerHTML = 'Copy';
   cb.onclick = () => {
     navigator.clipboard.writeText(text).then(() => {
-      cb.innerHTML = '✓ Copied';
-      setTimeout(() => { cb.innerHTML = '📋 Copy'; }, 2000);
+      cb.innerHTML = 'Copied';
+      setTimeout(() => { cb.innerHTML = 'Copy'; }, 2000);
     });
   };
   a.appendChild(cb);
@@ -344,7 +344,7 @@ function showTyping() {
   const el = document.createElement('div');
   el.className = 'typing-indicator'; el.id = 'typing-indicator';
   el.innerHTML = `
-    <div class="message-avatar" style="background:linear-gradient(135deg,var(--accent),#b06ef9);color:white">✦</div>
+    <div class="message-avatar" style="background:linear-gradient(135deg,var(--accent),#b06ef9);color:white">AI</div>
     <div class="typing-dots"><span></span><span></span><span></span></div>`;
   c.appendChild(el); scroll();
 }
@@ -358,14 +358,14 @@ function newChat() {
   c.innerHTML = `
     <div class="welcome" id="welcome-screen">
       <div class="welcome-glow"></div>
-      <div class="welcome-icon">✦</div>
+      <div class="welcome-icon">M</div>
       <h1>MimicAI</h1>
       <p>Chat with AI and hear responses spoken aloud. Record a voice sample in the sidebar, then start chatting.</p>
       <div class="welcome-pills">
-        <div class="welcome-pill" data-prompt="Tell me a joke">💬 Tell me a joke</div>
-        <div class="welcome-pill" data-prompt="Explain quantum physics simply">⚛️ Explain quantum physics</div>
-        <div class="welcome-pill" data-prompt="Write a short poem about the ocean">🌊 Write a poem</div>
-        <div class="welcome-pill" data-prompt="What can you do?">✨ What can you do?</div>
+        <div class="welcome-pill" data-prompt="Tell me a joke">Tell me a joke</div>
+        <div class="welcome-pill" data-prompt="Explain quantum physics simply">Explain quantum physics</div>
+        <div class="welcome-pill" data-prompt="Write a short poem about the ocean">Write a poem</div>
+        <div class="welcome-pill" data-prompt="What can you do?">What can you do?</div>
       </div>
     </div>`;
   $$('.welcome-pill').forEach(el => {

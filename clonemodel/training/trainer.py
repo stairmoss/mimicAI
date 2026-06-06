@@ -15,11 +15,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Training loop for OmniVoice.
+"""Training loop for MimicVoice.
 
 Wraps the HuggingFace Accelerate training loop with checkpoint saving/resuming,
 evaluation, gradient accumulation, and learning rate scheduling.
-Launched via ``omnivoice.cli.train``.
+Launched via ``MimicAI.cli.train``.
 """
 
 import logging
@@ -39,8 +39,8 @@ from transformers import (
     get_constant_schedule_with_warmup,
 )
 
-from omnivoice.training.checkpoint import TrainLogger, load_checkpoint
-from omnivoice.training.checkpoint import save_checkpoint as engine_save_checkpoint
+from clonemodel.training.checkpoint import TrainLogger, load_checkpoint
+from clonemodel.training.checkpoint import save_checkpoint as engine_save_checkpoint
 
 logger = logging.getLogger(__name__)
 

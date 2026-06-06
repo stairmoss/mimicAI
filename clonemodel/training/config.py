@@ -19,7 +19,7 @@
 
 Defines ``TrainingConfig``, a dataclass that holds all hyperparameters and paths
 for training. Loaded from a JSON config file via ``TrainingConfig.from_json()``
-in ``omnivoice.cli.train``.
+in ``MimicAI.cli.train``.
 """
 
 import json

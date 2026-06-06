@@ -15,13 +15,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Batch inference CLI for OmniVoice.
+"""Batch inference CLI for MimicVoice.
 
 Distributes TTS generation across multiple GPUs for large-scale tasks.
 Reads a JSONL test list, generates audio in parallel, and saves results.
 
 Usage:
-    omnivoice-infer-batch --model k2-fsa/OmniVoice \
+    MimicAI-infer-batch --model k2-fsa/MimicVoice \
         --test_list test.jsonl --res_dir results/
 
 Test list format (JSONL, one JSON object per line):
@@ -44,13 +44,13 @@ from typing import List, Optional, Tuple
 import torch
 from tqdm import tqdm
 
-from omnivoice.models.omnivoice import OmniVoice
+from clonemodel.models.mimicvoice import MimicVoice
 import soundfile as sf
 
-from omnivoice.utils.audio import load_audio
-from omnivoice.utils.common import str2bool
-from omnivoice.utils.data_utils import read_test_list
-from omnivoice.utils.duration import RuleDurationEstimator
+from clonemodel.utils.audio import load_audio
+from clonemodel.utils.common import str2bool
+from clonemodel.utils.data_utils import read_test_list
+from clonemodel.utils.duration import RuleDurationEstimator
 
 
 def get_best_device():
@@ -67,11 +67,11 @@ SAMPLING_RATE = 24000
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(description="Infer OmniVoice Model")
+    parser = argparse.ArgumentParser(description="Infer MimicVoice Model")
     parser.add_argument(
         "--model",
         type=str,
-        default="k2-fsa/OmniVoice",
+        default="k2-fsa/MimicVoice",
         help="Path to the model checkpoint (local dir or HF repo id). "
         "Audio tokenizer is expected at <checkpoint>/audio_tokenizer/.",
     )
@@ -208,7 +208,7 @@ def process_init(rank_queue, model_checkpoint, warmup=0):
     """Initializer for each worker process.
 
     Loads model (with tokenizers and duration estimator) onto a specific GPU
-    via ``OmniVoice.from_pretrained()``.
+    via ``MimicVoice.from_pretrained()``.
     """
     global worker_model
 
@@ -232,7 +232,7 @@ def process_init(rank_queue, model_checkpoint, warmup=0):
 
     logging.info(f"Initializing worker on device: {worker_device}")
 
-    worker_model = OmniVoice.from_pretrained(
+    worker_model = MimicVoice.from_pretrained(
         model_checkpoint,
         device_map=worker_device,
         dtype=torch.float16,

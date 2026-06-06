@@ -21,7 +21,7 @@ Uses omnilingual-asr for ASR transcription across 100+ languages.
 Requires a separate environment with ``omnilingual_asr`` installed.
 
 Usage:
-    python3 omnivoice/eval/wer/fleurs.py \\
+    python3 MimicAI/eval/wer/fleurs.py \\
         --wav-path results/fleurs \\
         --test-list test.jsonl \\
         --decode-path results/fleurs.wer.log \\
@@ -54,14 +54,13 @@ except ImportError:
 
 # omnilingual-asr may pull a transformers version that lacks
 # HiggsAudioV2TokenizerModel. Pre-register stubs to bypass
-# omnivoice/__init__.py heavy imports.
-if "omnivoice" not in sys.modules:
+if "mimicvoice" not in sys.modules:
     _root = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
     for _name in (
-        "omnivoice",
-        "omnivoice.eval",
-        "omnivoice.eval.wer",
-        "omnivoice.utils",
+        "mimicvoice",
+        "MimicAI.eval",
+        "MimicAI.eval.wer",
+        "MimicAI.utils",
     ):
         if _name not in sys.modules:
             _m = types.ModuleType(_name)
@@ -69,16 +68,16 @@ if "omnivoice" not in sys.modules:
             _m.__package__ = _name
             sys.modules[_name] = _m
 
-from omnivoice.eval.wer.common import log_metrics, process_one
-from omnivoice.eval.wer.text_norm_omni import text_normalize
-from omnivoice.utils.data_utils import read_test_list
+from clonemodel.eval.wer.common import log_metrics, process_one
+from clonemodel.eval.wer.text_norm_omni import text_normalize
+from clonemodel.utils.data_utils import read_test_list
 
 # --- Global variables for worker processes ---
 worker_pipe = None
 worker_device = None
 
 
-# fix mismatched language codes between OmniVoice and Omnilingual-ASR model
+# fix mismatched language codes between MimicVoice and Omnilingual-ASR model
 rename = {
     "et": "ekk",
     "ms": "zsm",

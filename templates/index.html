@@ -6,7 +6,7 @@
   <meta name="description" content="MimicAI — AI chatbot with neural text-to-speech in 20+ languages. Record a voice sample and hear AI replies spoken aloud.">
   <title>MimicAI — Voice AI Chatbot</title>
   <link rel="stylesheet" href="/static/css/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>M</text></svg>">
 </head>
 <body>
   <div class="app">
@@ -15,7 +15,7 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-logo">
-          <span class="logo-icon">✦</span>
+          <span class="logo-icon">M</span>
           <span class="logo-text">MimicAI</span>
         </div>
         <button class="new-chat-btn" id="new-chat-btn" title="Start new chat">
@@ -85,10 +85,10 @@
           <div class="status-badge" id="status-piper" title="Piper TTS">Piper <span class="dot"></span></div>
           <div class="status-badge" id="status-kokoro" title="Kokoro TTS Fallback">Kokoro <span class="dot"></span></div>
           <div class="status-badge" id="status-openvoice" title="OpenVoice Clone Engine">OpenVoice <span class="dot"></span></div>
-          <div class="status-badge" id="status-omnivoice" title="OmniVoice Full Clone">OmniVoice <span class="dot"></span></div>
-          <div class="status-badge" id="status-omnivoice-lite" title="OmniVoice Lite Clone">OmniLite <span class="dot"></span></div>
+          <div class="status-badge" id="status-MimicAI" title="MimicVoice Full Clone">MimicVoice <span class="dot"></span></div>
+          <div class="status-badge" id="status-MimicAI-lite" title="MimicVoice Lite Clone">MimicLite <span class="dot"></span></div>
         </div>
-        <div class="footer-info" style="margin-top: 6px;">F5-TTS · OmniVoice · Real Voice Clone</div>
+        <div class="footer-info" style="margin-top: 6px;">F5-TTS · MimicVoice · Real Voice Clone</div>
       </div>
     </aside>
 
@@ -112,7 +112,7 @@
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
             Stop Speech
           </button>
-          <label class="toggle-pill" title="Use OmniVoice Lite instead of full OmniVoice">
+          <label class="toggle-pill" title="Use MimicVoice Lite instead of full MimicVoice">
             <input type="checkbox" id="lightweight-toggle">
             <span class="toggle-track"><span class="toggle-thumb"></span></span>
             <span class="toggle-label">Lightweight</span>
@@ -138,14 +138,14 @@
           <!-- Welcome Screen -->
           <div class="welcome" id="welcome-screen">
             <div class="welcome-glow"></div>
-            <div class="welcome-icon">✦</div>
+            <div class="welcome-icon">M</div>
             <h1>MimicAI</h1>
             <p>Chat with AI and hear responses spoken aloud. Record a voice sample in the sidebar, then start chatting.</p>
             <div class="welcome-pills">
-              <div class="welcome-pill" data-prompt="Tell me a joke">💬 Tell me a joke</div>
-              <div class="welcome-pill" data-prompt="Explain quantum physics simply">⚛️ Explain quantum physics</div>
-              <div class="welcome-pill" data-prompt="Write a short poem about the ocean">🌊 Write a poem</div>
-              <div class="welcome-pill" data-prompt="What can you do?">✨ What can you do?</div>
+              <div class="welcome-pill" data-prompt="Tell me a joke"> Tell me a joke</div>
+              <div class="welcome-pill" data-prompt="Explain quantum physics simply"> Explain quantum physics</div>
+              <div class="welcome-pill" data-prompt="Write a short poem about the ocean"> Write a poem</div>
+              <div class="welcome-pill" data-prompt="What can you do?"> What can you do?</div>
             </div>
           </div>
 

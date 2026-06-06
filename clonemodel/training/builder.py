@@ -2,7 +2,7 @@
 """Builders for constructing training components.
 
 Provides factory functions to assemble the model, tokenizer, and data loaders
-from a ``TrainingConfig``. Called by ``omnivoice.cli.train`` to set up training.
+from a ``TrainingConfig``. Called by ``MimicAI.cli.train`` to set up training.
 
 Key functions:
 - ``build_model_and_tokenizer()``: Loads the model and text tokenizer.
@@ -26,19 +26,19 @@ from transformers import AutoConfig, AutoModel, AutoTokenizer
 from transformers import logging as hf_logging
 from transformers.trainer_utils import seed_worker
 
-from omnivoice.data.batching import PackingIterableDataset, StreamLengthGroupDataset
-from omnivoice.data.collator import PackingDataCollator, PaddingDataCollator
-from omnivoice.data.dataset import WebDatasetReader, prepare_data_manifests_from_json
-from omnivoice.data.processor import OmniVoiceSampleProcessor
-from omnivoice.models.omnivoice import OmniVoice, OmniVoiceConfig, _resolve_model_path
-from omnivoice.training.config import TrainingConfig
+from clonemodel.data.batching import PackingIterableDataset, StreamLengthGroupDataset
+from clonemodel.data.collator import PackingDataCollator, PaddingDataCollator
+from clonemodel.data.dataset import WebDatasetReader, prepare_data_manifests_from_json
+from clonemodel.data.processor import MimicVoiceSampleProcessor
+from clonemodel.models.mimicvoice import MimicVoice, MimicVoiceConfig, _resolve_model_path
+from clonemodel.training.config import TrainingConfig
 
 logger = logging.getLogger(__name__)
 
 
 def build_model_and_tokenizer(
     config: TrainingConfig,
-) -> Tuple[OmniVoice, AutoTokenizer]:
+) -> Tuple[MimicVoice, AutoTokenizer]:
     """Load Tokenizer and Model, handle resizing and special tokens."""
     logger.info("Initializing Model & Tokenizer...")
 
@@ -69,7 +69,7 @@ def build_model_and_tokenizer(
 
     if config.init_from_checkpoint:
         logger.info(f"Loading weights from {config.init_from_checkpoint}")
-        model = OmniVoice.from_pretrained(
+        model = MimicVoice.from_pretrained(
             config.init_from_checkpoint,
             attn_implementation=config.attn_implementation,
             dtype=torch.float32,
@@ -79,7 +79,7 @@ def build_model_and_tokenizer(
         resolved_llm = _resolve_model_path(config.llm_name_or_path)
         llm_config = AutoConfig.from_pretrained(resolved_llm)
 
-        ov_config = OmniVoiceConfig(
+        ov_config = MimicVoiceConfig(
             audio_vocab_size=config.audio_vocab_size,
             audio_mask_id=config.audio_mask_id,
             num_audio_codebook=config.num_audio_codebook,
@@ -97,7 +97,7 @@ def build_model_and_tokenizer(
         )
 
         hf_logging.set_verbosity(original_level)
-        model = OmniVoice(config=ov_config, llm=llm)
+        model = MimicVoice(config=ov_config, llm=llm)
 
     # 3. Resize Embeddings
     if len(tokenizer) != model.config.llm_config.vocab_size:
@@ -126,7 +126,7 @@ def build_dataloaders(
     """
     logger.info("Initializing Data Readers...")
 
-    processor = OmniVoiceSampleProcessor(
+    processor = MimicVoiceSampleProcessor(
         text_tokenizer=tokenizer,
         num_channels=config.num_audio_codebook,
         audio_mask_id=config.audio_mask_id,

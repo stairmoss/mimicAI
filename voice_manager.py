@@ -28,65 +28,65 @@ VOICES_DIR = Path(__file__).parent / "voices"
 SHARD_DIR = Path(os.path.expanduser("~/.clonemodel_lite/shards"))
 
 _model_lock = threading.Lock()
-_omnivoice_model = None
-_omnivoice_loaded = False
-_omnivoice_full_model = None
-_omnivoice_full_loaded = False
+_MimicAI_model = None
+_MimicAI_loaded = False
+_MimicAI_full_model = None
+_MimicAI_full_loaded = False
 
 
-def _load_omnivoice_model():
-    global _omnivoice_model, _omnivoice_loaded
+def _load_MimicAI_model():
+    global _MimicAI_model, _MimicAI_loaded
     with _model_lock:
-        if _omnivoice_loaded:
-            return _omnivoice_model
+        if _MimicAI_loaded:
+            return _MimicAI_model
         try:
-            from clonemodel.lite.omnivoice_lite import OmniVoiceLite
+            from clonemodel.lite.mimicvoice_lite import MimicVoiceLite
             if not SHARD_DIR.exists():
                 logger.warning(f"Shard dir {SHARD_DIR} missing. Model not loaded.")
-                _omnivoice_loaded = True
+                _MimicAI_loaded = True
                 return None
-            logger.info("Initializing OmniVoice Lite (CPU)...")
+            logger.info("Initializing MimicVoice Lite (CPU)...")
             t0 = time.monotonic()
-            _omnivoice_model = OmniVoiceLite.from_pretrained(
+            _MimicAI_model = MimicVoiceLite.from_pretrained(
                 shard_dir=str(SHARD_DIR), max_memory_gb=3.0,
                 device="cpu", enable_prefetch=True,
             )
-            logger.info(f"OmniVoice Lite ready in {time.monotonic()-t0:.1f}s")
+            logger.info(f"MimicVoice Lite ready in {time.monotonic()-t0:.1f}s")
         except Exception as exc:
-            logger.error(f"Failed to load OmniVoice Lite: {exc}", exc_info=True)
-            _omnivoice_model = None
+            logger.error(f"Failed to load MimicVoice Lite: {exc}", exc_info=True)
+            _MimicAI_model = None
         finally:
-            _omnivoice_loaded = True
-        return _omnivoice_model
+            _MimicAI_loaded = True
+        return _MimicAI_model
 
 
-def _load_omnivoice_full_model():
-    global _omnivoice_full_model, _omnivoice_full_loaded
+def _load_MimicAI_full_model():
+    global _MimicAI_full_model, _MimicAI_full_loaded
     with _model_lock:
-        if _omnivoice_full_loaded:
-            return _omnivoice_full_model
+        if _MimicAI_full_loaded:
+            return _MimicAI_full_model
         try:
-            from clonemodel import OmniVoice
+            from clonemodel import MimicVoice
 
-            model_name = os.environ.get("OMNIVOICE_MODEL", "k2-fsa/OmniVoice")
+            model_name = os.environ.get("MimicAI_MODEL", "k2-fsa/MimicVoice")
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
             dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
-            logger.info("Initializing full OmniVoice on %s from %s...", device, model_name)
+            logger.info("Initializing full MimicVoice on %s from %s...", device, model_name)
             t0 = time.monotonic()
-            _omnivoice_full_model = OmniVoice.from_pretrained(
+            _MimicAI_full_model = MimicVoice.from_pretrained(
                 model_name,
                 device_map=device,
                 torch_dtype=dtype,
                 load_asr=False,
             )
-            logger.info("Full OmniVoice ready in %.1fs", time.monotonic() - t0)
+            logger.info("Full MimicVoice ready in %.1fs", time.monotonic() - t0)
         except Exception as exc:
-            logger.error("Failed to load full OmniVoice: %s", exc, exc_info=True)
-            _omnivoice_full_model = None
+            logger.error("Failed to load full MimicVoice: %s", exc, exc_info=True)
+            _MimicAI_full_model = None
         finally:
-            _omnivoice_full_loaded = True
-        return _omnivoice_full_model
+            _MimicAI_full_loaded = True
+        return _MimicAI_full_model
 
 
 def _float_audio_to_wav_bytes(audio, sample_rate: int) -> bytes:
@@ -106,7 +106,7 @@ class VoiceManager:
 
     TTS priority (generate_tts):
       1. F5-TTS voice cloning using the selected reference voice.
-      2. OmniVoice / OmniVoice Lite voice cloning.
+      2. MimicVoice / MimicVoice Lite voice cloning.
       3. OpenVoice tone conversion over local Piper/Kokoro base speech.
       4. Piper direct local fallback.
     """
@@ -272,14 +272,14 @@ class VoiceManager:
                 return None
 
             if lightweight:
-                result = self._generate_omnivoice_lite(text, voice_id, language, progress_callback)
+                result = self._generate_MimicAI_lite(text, voice_id, language, progress_callback)
                 if result is not None:
-                    self.last_tts_engine = "omnivoice_lite"
+                    self.last_tts_engine = "mimicvoice_lite"
                 return result
 
-            result = self._generate_omnivoice_full(text, voice_id, language, progress_callback)
+            result = self._generate_MimicAI_full(text, voice_id, language, progress_callback)
             if result is not None:
-                self.last_tts_engine = "omnivoice"
+                self.last_tts_engine = "mimicvoice"
                 return result
 
             result = self._generate_cloned(text, voice_id, language, progress_callback)
@@ -439,9 +439,9 @@ class VoiceManager:
             return str(local)
         return None
 
-    # -- OmniVoice -------------------------------------------------------------
+    # -- MimicVoice -------------------------------------------------------------
 
-    def _generate_omnivoice_full(
+    def _generate_MimicAI_full(
         self,
         text: str,
         voice_id: str,
@@ -455,14 +455,14 @@ class VoiceManager:
                 return None
 
             if progress_callback:
-                progress_callback("init", 0, 3, "Loading full OmniVoice...")
+                progress_callback("init", 0, 3, "Loading full MimicVoice...")
 
-            model = _load_omnivoice_full_model()
+            model = _load_MimicAI_full_model()
             if model is None:
                 return None
 
             if progress_callback:
-                progress_callback("generate", 1, 3, "Generating with full OmniVoice...")
+                progress_callback("generate", 1, 3, "Generating with full MimicVoice...")
 
             audios = model.generate(
                 text=text[:500],
@@ -475,14 +475,14 @@ class VoiceManager:
             sample_rate = int(getattr(model, "sampling_rate", 24000) or 24000)
 
             if progress_callback:
-                progress_callback("done", 3, 3, "Full OmniVoice generated speech.")
+                progress_callback("done", 3, 3, "Full MimicVoice generated speech.")
 
             return _float_audio_to_wav_bytes(audio, sample_rate)
         except Exception as exc:
-            logger.error(f"Full OmniVoice generation error: {exc}", exc_info=True)
+            logger.error(f"Full MimicVoice generation error: {exc}", exc_info=True)
             return None
 
-    def _generate_omnivoice_lite(
+    def _generate_MimicAI_lite(
         self,
         text: str,
         voice_id: str,
@@ -495,7 +495,7 @@ class VoiceManager:
                 logger.warning(f"No reference audio for voice {voice_id}")
                 return None
 
-            model = _load_omnivoice_model()
+            model = _load_MimicAI_model()
             if model is None:
                 return None
 
@@ -509,7 +509,7 @@ class VoiceManager:
             sample_rate = int(getattr(model, "sampling_rate", 24000) or 24000)
             return _float_audio_to_wav_bytes(audio, sample_rate)
         except Exception as exc:
-            logger.error(f"OmniVoice Lite generation error: {exc}", exc_info=True)
+            logger.error(f"MimicVoice Lite generation error: {exc}", exc_info=True)
             return None
 
     # -- Piper TTS (primary local engine) --------------------------------------

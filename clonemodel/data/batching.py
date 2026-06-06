@@ -22,10 +22,10 @@ variable-length audio.
 
 Key classes:
 - ``PackingIterableDataset``: Packs multiple samples into fixed-length sequences
-  for training. Used by ``omnivoice.training.builder`` with flex_attention.
+  for training. Used by ``MimicAI.training.builder`` with flex_attention.
 - ``StreamLengthGroupDataset``: Groups samples by length into buckets. Used by
-  data processing scripts (e.g. ``omnivoice/scripts/``) and by
-  ``omnivoice.training.builder`` when ``attn_implementation != "flex_attention"``.
+  data processing scripts (e.g. ``MimicAI/scripts/``) and by
+  ``MimicAI.training.builder`` when ``attn_implementation != "flex_attention"``.
 """
 
 import bisect
@@ -34,7 +34,7 @@ from typing import Any, Dict, Iterator, List, Optional
 
 import numpy as np
 
-from omnivoice.data.dataset import IterableDataReader, WrappedIterableDataset
+from clonemodel.data.dataset import IterableDataReader, WrappedIterableDataset
 
 
 class StreamLengthGroupDataset(WrappedIterableDataset):
