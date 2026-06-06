@@ -242,8 +242,14 @@ class VoiceManager:
         lightweight: bool = False,
         allow_fallback: bool = True,
         progress_callback: Optional[Callable] = None,
+        voice_design: Optional[dict] = None,
     ) -> Optional[bytes]:
         self.last_tts_engine = "none"
+
+        if not voice_id and voice_design:
+            result = self._generate_designed_voice(text, voice_design)
+            if result is not None:
+                return result
 
         if voice_id:
             if not _is_safe_id(voice_id):
@@ -289,6 +295,52 @@ class VoiceManager:
             return piper_result
 
         logger.error("Real voice TTS failed.")
+        return None
+
+    def _generate_designed_voice(self, text: str, design: dict) -> Optional[bytes]:
+        """Synthesize speech using designed voice attributes (zero-shot synthesis via Kokoro)."""
+        gender = design.get("gender", "female").lower()
+        accent = design.get("accent", "us").lower()
+        speed = float(design.get("speed", 1.0))
+        
+        # Map gender + accent to Kokoro voice
+        if accent == "uk":
+            voice = "bf_emma" if gender == "female" else "bm_george"
+            lang = "en-gb"
+        elif accent == "jp":
+            voice = "jf_alpha"
+            lang = "ja"
+        else: # US default
+            voice = "af_sarah" if gender == "female" else "am_adam"
+            lang = "en-us"
+            
+        try:
+            from clone_engine import _get_kokoro, _float_audio_to_wav_bytes
+            kokoro = _get_kokoro()
+            if kokoro is not None:
+                speed = max(0.5, min(2.0, speed))
+                samples, sample_rate = kokoro.create(text[:500], voice=voice, speed=speed, lang=lang)
+                if samples is not None and len(samples) > 0:
+                    self.last_tts_engine = "kokoro"
+                    return _float_audio_to_wav_bytes(samples, sample_rate)
+        except Exception as exc:
+            logger.warning(f"Voice design synthesis via Kokoro failed: {exc}. Trying Piper design...")
+            
+        # Fallback to Piper with adjusted speed/pitch
+        try:
+            length_scale = 1.0 / speed if speed > 0 else 1.0
+            noise_scale = 0.667
+            import piper_tts
+            if piper_tts.is_available():
+                self.last_tts_engine = "piper"
+                return piper_tts.synthesize(
+                    text=text[:500],
+                    noise_scale=noise_scale,
+                    length_scale=length_scale,
+                )
+        except Exception:
+            pass
+            
         return None
 
     # -- F5-TTS ----------------------------------------------------------------

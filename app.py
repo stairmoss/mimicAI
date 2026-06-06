@@ -256,6 +256,7 @@ def text_to_speech():
     prefer_clone = bool(data.get("prefer_clone"))
     lightweight = bool(data.get("lightweight"))
     allow_fallback = not bool(data.get("strict_clone"))
+    voice_design = data.get("voice_design") or None
 
     try:
         audio_bytes = voice_manager.generate_tts(
@@ -265,6 +266,7 @@ def text_to_speech():
             prefer_clone=prefer_clone,
             lightweight=lightweight,
             allow_fallback=allow_fallback if not prefer_clone else True,
+            voice_design=voice_design,
         )
     except Exception as exc:
         return _error_response(exc, "TTS generation failed")
@@ -293,6 +295,7 @@ def tts_async_start():
     prefer_clone = bool(data.get("prefer_clone"))
     lightweight = bool(data.get("lightweight"))
     allow_fallback = not bool(data.get("strict_clone"))
+    voice_design = data.get("voice_design") or None
 
     job_id = uuid.uuid4().hex[:16]
     _new_job(job_id)
@@ -312,6 +315,7 @@ def tts_async_start():
                 lightweight=lightweight,
                 allow_fallback=allow_fallback,
                 progress_callback=progress,
+                voice_design=voice_design,
             )
             if audio_bytes:
                 _update_job(job_id, status="done", audio=audio_bytes, engine=voice_manager.last_tts_engine)

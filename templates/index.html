@@ -24,18 +24,59 @@
       </div>
 
       <div class="sidebar-section">
-        <div class="section-title">Voice Profiles</div>
-        <ul class="voice-list" id="voice-list">
-          <li class="voice-empty">
-            <div class="voice-empty-icon">🎤</div>
-            <div>No voice profiles yet.</div>
-            <div style="font-size:11px;margin-top:2px;">Record a sample to enable TTS</div>
-          </li>
-        </ul>
-        <button class="sidebar-btn" id="record-voice-btn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-          Record Voice Sample
-        </button>
+        <div class="voice-mode-tabs">
+          <button class="voice-tab active" id="tab-profiles">Profiles</button>
+          <button class="voice-tab" id="tab-design">Design Voice</button>
+        </div>
+        
+        <div id="panel-profiles" class="voice-panel">
+          <ul class="voice-list" id="voice-list">
+            <li class="voice-empty">
+              <div class="voice-empty-icon">🎤</div>
+              <div>No voice profiles yet.</div>
+              <div style="font-size:11px;margin-top:2px;">Record a sample to enable TTS</div>
+            </li>
+          </ul>
+          <button class="sidebar-btn" id="record-voice-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            Record Voice Sample
+          </button>
+        </div>
+
+        <div id="panel-design" class="voice-panel hidden">
+          <div class="design-field">
+            <label class="design-label">Gender</label>
+            <div class="design-toggle-group">
+              <button class="design-toggle-btn active" data-gender="female">Female</button>
+              <button class="design-toggle-btn" data-gender="male">Male</button>
+            </div>
+          </div>
+          <div class="design-field">
+            <label class="design-label" for="design-accent">Accent</label>
+            <select id="design-accent" class="design-select">
+              <option value="us">American (US)</option>
+              <option value="uk">British (UK)</option>
+              <option value="jp">Japanese (JP)</option>
+            </select>
+          </div>
+          <div class="design-field">
+            <div class="slider-header">
+              <label class="design-label" for="design-speed">Speed Rate</label>
+              <span class="slider-val" id="val-speed">1.0x</span>
+            </div>
+            <input type="range" id="design-speed" min="0.5" max="2.0" step="0.1" value="1.0" class="design-slider">
+          </div>
+          <div class="design-field">
+            <div class="slider-header">
+              <label class="design-label" for="design-pitch">Pitch Shift</label>
+              <span class="slider-val" id="val-pitch">1.0</span>
+            </div>
+            <input type="range" id="design-pitch" min="0.5" max="1.5" step="0.1" value="1.0" class="design-slider">
+          </div>
+          <div class="design-info">
+            Uses Kokoro neural models for real-time speech styling.
+          </div>
+        </div>
       </div>
 
       <div class="sidebar-footer">

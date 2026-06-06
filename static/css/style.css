@@ -652,3 +652,122 @@ html, body {
   .welcome-pill { font-size: 12px; padding: 7px 12px; }
   .header-right .toggle-pill .toggle-label { display: none; }
 }
+
+/* Voice Design & Mode Tab styles */
+.voice-mode-tabs {
+  display: flex;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 2px;
+  margin-bottom: 12px;
+}
+.voice-tab {
+  flex: 1;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  border-radius: calc(var(--r-sm) - 1px);
+  color: var(--text3);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--tr);
+}
+.voice-tab:hover {
+  color: var(--text2);
+}
+.voice-tab.active {
+  background: var(--bg3);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+.voice-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: opacity var(--tr);
+}
+
+/* Voice Design Panel */
+.design-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.design-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text2);
+}
+.design-toggle-group {
+  display: flex;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 2px;
+}
+.design-toggle-btn {
+  flex: 1;
+  padding: 7px;
+  font-family: var(--font);
+  font-size: 11px;
+  border: none;
+  background: none;
+  color: var(--text3);
+  border-radius: calc(var(--r-sm) - 2px);
+  cursor: pointer;
+  transition: all var(--tr);
+}
+.design-toggle-btn:hover {
+  color: var(--text2);
+}
+.design-toggle-btn.active {
+  background: var(--accent);
+  color: white;
+}
+.design-select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+.design-select:focus {
+  border-color: var(--accent);
+}
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.slider-val {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+}
+.design-slider {
+  width: 100%;
+  height: 4px;
+  background: var(--bg3);
+  border-radius: 2px;
+  outline: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.design-info {
+  font-size: 10px;
+  color: var(--text3);
+  line-height: 1.4;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.02);
+  border-radius: var(--r-sm);
+  border-left: 2px solid var(--accent);
+}

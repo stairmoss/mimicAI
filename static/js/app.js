@@ -19,6 +19,8 @@ const KEYS = {
   autoSpeak: 'mimicai:auto-speak',
   lightweightTts: 'mimicai:lightweight-tts',
   theme: 'mimicai:theme',
+  voiceMode: 'mimicai:voice-mode',
+  voiceDesign: 'mimicai:voice-design',
 };
 
 /* ───────── State ───────── */
@@ -35,6 +37,13 @@ const state = {
   lightweightTts: false,
   currentAudio: null,
   theme: 'dark',
+  voiceMode: 'profiles',
+  voiceDesign: {
+    gender: 'female',
+    accent: 'us',
+    speed: 1.0,
+    pitch: 1.0,
+  },
 };
 
 const $ = (s) => document.querySelector(s);
@@ -47,7 +56,16 @@ document.addEventListener('DOMContentLoaded', () => {
   state.lightweightTts = localStorage.getItem(KEYS.lightweightTts) === 'true';
   state.theme = localStorage.getItem(KEYS.theme) || 'dark';
   document.documentElement.setAttribute('data-theme', state.theme);
+  
+  state.voiceMode = localStorage.getItem(KEYS.voiceMode) || 'profiles';
+  try {
+    const savedDesign = localStorage.getItem(KEYS.voiceDesign);
+    if (savedDesign) state.voiceDesign = JSON.parse(savedDesign);
+  } catch {}
+
   bindEvents();
+  applyVoiceModeUI();
+  applyVoiceDesignUI();
   loadVoices();
   loadLanguages();
   checkEngineStatus();
@@ -137,6 +155,57 @@ function bindEvents() {
       ta.dispatchEvent(new Event('input'));
     });
   });
+
+  const tabP = $('#tab-profiles');
+  const tabD = $('#tab-design');
+  if (tabP && tabD) {
+    tabP.addEventListener('click', () => {
+      state.voiceMode = 'profiles';
+      localStorage.setItem(KEYS.voiceMode, 'profiles');
+      applyVoiceModeUI();
+    });
+    tabD.addEventListener('click', () => {
+      state.voiceMode = 'design';
+      localStorage.setItem(KEYS.voiceMode, 'design');
+      applyVoiceModeUI();
+    });
+  }
+
+  $$('.design-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.voiceDesign.gender = btn.dataset.gender;
+      localStorage.setItem(KEYS.voiceDesign, JSON.stringify(state.voiceDesign));
+      applyVoiceDesignUI();
+    });
+  });
+
+  const designAccent = $('#design-accent');
+  if (designAccent) {
+    designAccent.addEventListener('change', (e) => {
+      state.voiceDesign.accent = e.target.value;
+      localStorage.setItem(KEYS.voiceDesign, JSON.stringify(state.voiceDesign));
+    });
+  }
+
+  const designSpeed = $('#design-speed');
+  if (designSpeed) {
+    designSpeed.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value).toFixed(1);
+      state.voiceDesign.speed = parseFloat(val);
+      $('#val-speed').textContent = val + 'x';
+      localStorage.setItem(KEYS.voiceDesign, JSON.stringify(state.voiceDesign));
+    });
+  }
+
+  const designPitch = $('#design-pitch');
+  if (designPitch) {
+    designPitch.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value).toFixed(1);
+      state.voiceDesign.pitch = parseFloat(val);
+      $('#val-pitch').textContent = val;
+      localStorage.setItem(KEYS.voiceDesign, JSON.stringify(state.voiceDesign));
+    });
+  }
 }
 
 /* ───────── Chat ───────── */
@@ -323,13 +392,20 @@ function scroll() {
 /* ───────── TTS ───────── */
 async function playTts(text, btn) {
   if (!text || !btn) return;
-  const voiceId = state.selectedVoice || null;
-  if (!voiceId) { toast('Select a voice to hear responses', 'info'); return; }
+  const isProfiles = state.voiceMode === 'profiles';
+  const voiceId = isProfiles ? (state.selectedVoice || null) : null;
+  if (isProfiles && !voiceId) { toast('Select a voice profile or switch to Design Voice', 'info'); return; }
 
-  const profile = state.voices.find(v => v.id === voiceId);
-  const lang = profile?.language || 'en';
+  const voiceDesign = isProfiles ? null : state.voiceDesign;
+  let lang = 'en';
+  if (isProfiles) {
+    const profile = state.voices.find(v => v.id === voiceId);
+    lang = profile?.language || 'en';
+  } else {
+    lang = voiceDesign.accent === 'jp' ? 'ja' : 'en';
+  }
+
   const orig = btn.innerHTML;
-
   btn.innerHTML = '⏳ Loading…'; btn.disabled = true;
 
   try {
@@ -340,9 +416,10 @@ async function playTts(text, btn) {
         text: text.substring(0, 500),
         voice_id: voiceId,
         language: lang,
-        prefer_clone: true,
+        prefer_clone: isProfiles,
         lightweight: state.lightweightTts,
         strict_clone: false,
+        voice_design: voiceDesign,
       }),
     });
 
@@ -737,4 +814,43 @@ function fmtBytes(b) {
   if (b < 1024) return b + ' B';
   if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
   return (b / 1048576).toFixed(1) + ' MB';
+}
+
+function applyVoiceModeUI() {
+  const isProfiles = state.voiceMode === 'profiles';
+  const tabP = $('#tab-profiles');
+  const tabD = $('#tab-design');
+  const panelP = $('#panel-profiles');
+  const panelD = $('#panel-design');
+  
+  if (isProfiles) {
+    if (tabP) tabP.classList.add('active');
+    if (tabD) tabD.classList.remove('active');
+    if (panelP) panelP.classList.remove('hidden');
+    if (panelD) panelD.classList.add('hidden');
+  } else {
+    if (tabD) tabD.classList.add('active');
+    if (tabP) tabP.classList.remove('active');
+    if (panelD) panelD.classList.remove('hidden');
+    if (panelP) panelP.classList.add('hidden');
+  }
+}
+
+function applyVoiceDesignUI() {
+  const d = state.voiceDesign;
+  $$('.design-toggle-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.gender === d.gender);
+  });
+  const designAccent = $('#design-accent');
+  if (designAccent) designAccent.value = d.accent;
+  
+  const designSpeed = $('#design-speed');
+  if (designSpeed) designSpeed.value = d.speed;
+  const valSpeed = $('#val-speed');
+  if (valSpeed) valSpeed.textContent = d.speed + 'x';
+  
+  const designPitch = $('#design-pitch');
+  if (designPitch) designPitch.value = d.pitch;
+  const valPitch = $('#val-pitch');
+  if (valPitch) valPitch.textContent = d.pitch;
 }
