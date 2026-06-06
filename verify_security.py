@@ -60,6 +60,26 @@ def test_path_traversal_prevention():
             
     print("[+] Path traversal prevention tests passed!")
 
+def test_voice_design_validation():
+    print("[*] Running voice design validation tests...")
+    vm = VoiceManager()
+    
+    # Non-dict input
+    assert vm._generate_designed_voice("test", None) is None, "Failed: None design input should return None"
+    assert vm._generate_designed_voice("test", "not-a-dict") is None, "Failed: String design input should return None"
+    
+    # Verify malicious/invalid parameters do not crash the engine
+    try:
+        vm._generate_designed_voice("test", {
+            "gender": "unknown-malicious",
+            "accent": "malicious-accent",
+            "speed": "not-a-float"
+        })
+    except Exception as exc:
+        assert False, f"Failed: Invalid fields in design dict should not raise exception: {exc}"
+        
+    print("[+] Voice design validation tests passed!")
+
 if __name__ == "__main__":
     print("=" * 60)
     print("           MIMICAI SECURITY TEST SUITE")
@@ -67,6 +87,7 @@ if __name__ == "__main__":
     try:
         test_safe_id()
         test_path_traversal_prevention()
+        test_voice_design_validation()
         print("\n[SUCCESS] All security validations are functioning correctly!")
     except AssertionError as e:
         print(f"\n[FAILURE] Test assertion failed: {e}")

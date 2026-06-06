@@ -299,9 +299,23 @@ class VoiceManager:
 
     def _generate_designed_voice(self, text: str, design: dict) -> Optional[bytes]:
         """Synthesize speech using designed voice attributes (zero-shot synthesis via Kokoro)."""
-        gender = design.get("gender", "female").lower()
-        accent = design.get("accent", "us").lower()
-        speed = float(design.get("speed", 1.0))
+        if not isinstance(design, dict):
+            logger.warning("Invalid voice_design type, must be a dict.")
+            return None
+
+        gender = str(design.get("gender", "female")).lower()
+        if gender not in ["male", "female"]:
+            gender = "female"
+
+        accent = str(design.get("accent", "us")).lower()
+        if accent not in ["us", "uk", "jp"]:
+            accent = "us"
+
+        try:
+            speed = float(design.get("speed", 1.0))
+        except (ValueError, TypeError):
+            speed = 1.0
+        speed = max(0.5, min(2.0, speed))
         
         # Map gender + accent to Kokoro voice
         if accent == "uk":
@@ -315,7 +329,7 @@ class VoiceManager:
             lang = "en-us"
             
         try:
-            from clone_engine import _get_kokoro, _float_audio_to_wav_bytes
+            from clone_engine import _get_kokoro
             kokoro = _get_kokoro()
             if kokoro is not None:
                 speed = max(0.5, min(2.0, speed))
