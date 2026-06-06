@@ -25,6 +25,16 @@ from flask_cors import CORS
 
 from voice_manager import VoiceManager
 
+# Load local .env file if present
+env_path = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(env_path):
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ[k.strip()] = v.strip()
+
 # ── Configuration ──────────────────────────────────────────────────────────────
 
 HACKCLUB_API_URL = "https://ai.hackclub.com/proxy/v1/chat/completions"
