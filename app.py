@@ -110,26 +110,40 @@ def _new_job(job_id: str):
             "engine": None,
             "error": None,
             "queue": queue.Queue(),
+            "created_at": time.time(),
         }
 
 
 def _update_job(job_id: str, **kwargs):
     with _tts_jobs_lock:
         job = _tts_jobs.get(job_id)
-    if job is None:
-        return
-    for k, v in kwargs.items():
-        job[k] = v
-    # Push an event so SSE listeners wake up
-    try:
-        job["queue"].put_nowait(kwargs)
-    except queue.Full:
-        pass
+        if job is None:
+            return
+        for k, v in kwargs.items():
+            job[k] = v
+        # Push an event so SSE listeners wake up
+        try:
+            job["queue"].put_nowait(kwargs)
+        except queue.Full:
+            pass
 
 
 def _get_job(job_id: str) -> dict | None:
     with _tts_jobs_lock:
         return _tts_jobs.get(job_id)
+
+
+def _get_job_snapshot(job_id: str) -> dict | None:
+    with _tts_jobs_lock:
+        job = _tts_jobs.get(job_id)
+        if job is None:
+            return None
+        return {
+            "status": job.get("status"),
+            "engine": job.get("engine"),
+            "error": job.get("error"),
+            "last_progress": job.get("last_progress", {}),
+        }
 
 
 def _cleanup_old_jobs():
@@ -299,7 +313,6 @@ def tts_async_start():
 
     job_id = uuid.uuid4().hex[:16]
     _new_job(job_id)
-    _tts_jobs[job_id]["created_at"] = time.time()
 
     def _worker():
         def progress(phase, step, total, msg):
@@ -339,7 +352,7 @@ def tts_async_status(job_id):
     def event_stream():
         start = time.time()
         while True:
-            job = _get_job(job_id)
+            job = _get_job_snapshot(job_id)
             if job is None:
                 data = json.dumps({"status": "not_found"})
                 yield f"data: {data}\n\n"
@@ -377,19 +390,23 @@ def tts_async_status(job_id):
 @app.route("/api/tts/async/<job_id>/audio")
 def tts_async_audio(job_id):
     """Retrieve completed audio for a finished async job."""
-    job = _get_job(job_id)
-    if not job:
-        return jsonify({"error": "Job not found"}), 404
-    if job.get("status") != "done":
-        return jsonify({"error": "Job not ready", "status": job.get("status")}), 202
-    audio_bytes = job.get("audio")
+    with _tts_jobs_lock:
+        job = _tts_jobs.get(job_id)
+        if not job:
+            return jsonify({"error": "Job not found"}), 404
+        if job.get("status") != "done":
+            return jsonify({"error": "Job not ready", "status": job.get("status")}), 202
+        audio_bytes = job.get("audio")
+        engine = job.get("engine", "unknown")
+        
     if not audio_bytes:
         return jsonify({"error": "No audio data"}), 500
+        
     content_type = _detect_mimetype(audio_bytes)
     return Response(
         audio_bytes,
         mimetype=content_type,
-        headers={"X-TTS-Engine": job.get("engine", "unknown")},
+        headers={"X-TTS-Engine": engine},
     )
 
 
