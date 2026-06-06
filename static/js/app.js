@@ -630,11 +630,85 @@ function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.
 function md(text) {
   if (!text) return '';
   let h = esc(text);
-  h = h.replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre style="background:rgba(255,255,255,0.04);padding:12px;border-radius:8px;overflow-x:auto;font-size:13px;margin:8px 0;border:1px solid rgba(255,255,255,0.06)"><code>$2</code></pre>');
-  h = h.replace(/`([^`]+)`/g, '<code style="background:rgba(124,109,249,0.12);padding:2px 6px;border-radius:4px;font-size:13px;color:var(--accent2)">$1</code>');
+  
+  // 1. Parse code blocks
+  const codeBlocks = [];
+  h = h.replace(/```(\w*)\n?([\s\S]*?)```/g, (match, lang, code) => {
+    const placeholder = `__CODE_BLOCK_PLACEHOLDER_${codeBlocks.length}__`;
+    codeBlocks.push(`<pre style="background:rgba(255,255,255,0.04);padding:12px;border-radius:8px;overflow-x:auto;font-size:13px;margin:8px 0;border:1px solid var(--border)"><code>${code}</code></pre>`);
+    return placeholder;
+  });
+
+  // 2. Parse inline code
+  const inlineCodes = [];
+  h = h.replace(/`([^`]+)`/g, (match, code) => {
+    const placeholder = `__INLINE_CODE_PLACEHOLDER_${inlineCodes.length}__`;
+    inlineCodes.push(`<code style="background:var(--accent-dim);padding:2px 6px;border-radius:4px;font-size:13px;color:var(--accent)">${code}</code>`);
+    return placeholder;
+  });
+
+  // 3. Parse Tables
+  h = h.replace(/(?:^|\n)(\|.*\|)(?:\n\|.*\|)+/g, (tableBlock) => {
+    const lines = tableBlock.trim().split('\n');
+    let hasHeader = false;
+    let headerHtml = '';
+    let bodyHtml = '';
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      if (line.match(/^\|[ \t]*:?-+:?[ \t]*\|[ \t]*:?-+:?[ \t]*\|/) || line.match(/^\|[ \t]*:?-+:?[ \t]*\|/)) {
+        hasHeader = true;
+        continue;
+      }
+      const cells = line.split('|').slice(1, -1).map(c => c.trim());
+      const rowHtml = `<tr>${cells.map(c => `<td style="padding:8px 12px;border:1px solid var(--border);">${c}</td>`).join('')}</tr>`;
+      
+      if (i === 0 && !hasHeader) {
+        headerHtml = `<thead><tr>${cells.map(c => `<th style="padding:8px 12px;border:1px solid var(--border);background:var(--bg3);font-weight:600;">${c}</th>`).join('')}</tr></thead>`;
+      } else if (i === 0 || (i === 1 && hasHeader)) {
+        headerHtml = `<thead><tr>${cells.map(c => `<th style="padding:8px 12px;border:1px solid var(--border);background:var(--bg3);font-weight:600;">${c}</th>`).join('')}</tr></thead>`;
+      } else {
+        bodyHtml += rowHtml;
+      }
+    }
+    return `\n<table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;background:var(--bg2);border:1px solid var(--border);">${headerHtml}<tbody>${bodyHtml}</tbody></table>\n`;
+  });
+
+  // 4. Parse Blockquotes
+  h = h.replace(/(?:^|\n)&gt;[ \t]+(.*)/g, (match, quoteText) => {
+    return `\n<blockquote style="border-left:3px solid var(--accent);padding-left:12px;color:var(--text2);margin:8px 0;font-style:italic;">${quoteText}</blockquote>\n`;
+  });
+
+  // 5. Parse Lists
+  h = h.replace(/(?:^|\n)[-*+][ \t]+(.*)/g, '\n<li>$1</li>');
+  h = h.replace(/(?:<li>.*<\/li>\s*)+/g, (match) => `<ul style="margin:8px 0 8px 20px;padding-left:8px;list-style-type:disc;">${match.trim()}</ul>`);
+  h = h.replace(/(?:^|\n)\d+\.[ \t]+(.*)/g, '\n<li class="ord-li">$1</li>');
+  h = h.replace(/(?:<li class="ord-li">.*<\/li>\s*)+/g, (match) => {
+    const cleaned = match.replace(/class="ord-li"/g, '');
+    return `<ol style="margin:8px 0 8px 20px;padding-left:8px;list-style-type:decimal;">${cleaned.trim()}</ol>`;
+  });
+
+  // 6. Horizontal Rules
+  h = h.replace(/(?:^|\n)---[ \t]*(\n|$)/g, '\n<hr style="border:0;border-top:1px solid var(--border);margin:16px 0;">\n');
+
+  // 7. Bold and Italic
   h = h.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   h = h.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+  // 8. Convert newlines to breaks
   h = h.replace(/\n/g, '<br>');
+  h = h.replace(/<br><(ul|ol|table|blockquote|pre|hr|li|thead|tbody|tr)/g, '<$1');
+  h = h.replace(/<\/(ul|ol|table|blockquote|pre|hr|li|thead|tbody|tr)><br>/g, '</$1>');
+
+  // 9. Restore placeholders
+  inlineCodes.forEach((codeHtml, idx) => {
+    h = h.replace(`__INLINE_CODE_PLACEHOLDER_${idx}__`, codeHtml);
+  });
+  codeBlocks.forEach((codeHtml, idx) => {
+    h = h.replace(`__CODE_BLOCK_PLACEHOLDER_${idx}__`, codeHtml);
+  });
+
   return h;
 }
 
