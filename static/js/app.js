@@ -96,6 +96,16 @@ function bindEvents() {
       $('#chat-input').focus();
     });
   });
+
+  const sab = $('#stop-audio-btn');
+  if (sab) {
+    sab.addEventListener('click', () => {
+      if (state.currentAudio) {
+        state.currentAudio.pause();
+        setCurrentAudio(null);
+      }
+    });
+  }
 }
 
 /* ───────── Chat ───────── */
@@ -327,8 +337,7 @@ async function playTts(text, btn) {
     playerContainer.innerHTML = `<audio controls src="${url}" style="height:32px; width:100%; outline:none; border-radius:16px;"></audio>`;
     const audio = playerContainer.querySelector('audio');
     
-    if (state.currentAudio) { state.currentAudio.pause(); }
-    state.currentAudio = audio;
+    setCurrentAudio(audio);
     
     btn.innerHTML = '✓ Cloned';
     setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 2000);
@@ -402,6 +411,25 @@ function updateVoiceSelect() {
   }
 }
 
+function setCurrentAudio(audio) {
+  if (state.currentAudio) {
+    state.currentAudio.pause();
+    state.currentAudio.onplay = null;
+    state.currentAudio.onpause = null;
+    state.currentAudio.onended = null;
+  }
+  state.currentAudio = audio;
+  const stopBtn = document.getElementById('stop-audio-btn');
+  if (audio) {
+    audio.onplay = () => { if (stopBtn) stopBtn.style.display = 'flex'; };
+    audio.onpause = () => { if (stopBtn) stopBtn.style.display = 'none'; };
+    audio.onended = () => { if (stopBtn) stopBtn.style.display = 'none'; setCurrentAudio(null); };
+    if (stopBtn) stopBtn.style.display = 'flex';
+  } else {
+    if (stopBtn) stopBtn.style.display = 'none';
+  }
+}
+
 function persistVoice() {
   if (state.selectedVoice) localStorage.setItem(KEYS.voice, state.selectedVoice);
   else localStorage.removeItem(KEYS.voice);
@@ -417,10 +445,10 @@ async function previewVoice(voice, btn) {
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Preview failed');
     const url = URL.createObjectURL(await r.blob());
-    if (state.currentAudio) state.currentAudio.pause();
-    const a = new Audio(url); state.currentAudio = a;
+    const a = new Audio(url);
+    setCurrentAudio(a);
     await a.play();
-    a.onended = () => { state.currentAudio = null; URL.revokeObjectURL(url); };
+    a.onended = () => { setCurrentAudio(null); URL.revokeObjectURL(url); };
   } catch (e) { toast(e.message, 'error'); }
   finally { btn.disabled = false; btn.innerHTML = orig; }
 }

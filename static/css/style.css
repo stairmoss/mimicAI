@@ -176,6 +176,25 @@ html, body {
 .header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
 
 .header-right { display: flex; align-items: center; gap: 10px; }
+.stop-audio-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--red);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-family: var(--font);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all var(--tr);
+}
+.stop-audio-btn:hover {
+  background: #dc2626;
+  transform: scale(1.05);
+}
 
 /* Toggle pill */
 .toggle-pill { display: flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; }
