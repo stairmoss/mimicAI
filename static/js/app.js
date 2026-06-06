@@ -11,6 +11,7 @@ const API = {
   ttsAsyncStatus: (id) => `/api/tts/async/${id}/status`,
   ttsAsyncAudio: (id) => `/api/tts/async/${id}/audio`,
   languages: '/api/languages',
+  status: '/api/status',
 };
 
 const KEYS = {
@@ -49,6 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
   bindEvents();
   loadVoices();
   loadLanguages();
+  checkEngineStatus();
+  // Poll status every 30 seconds
+  setInterval(checkEngineStatus, 30000);
 });
 
 function bindEvents() {
@@ -610,6 +614,23 @@ async function loadLanguages() {
     if (!sel) return;
     const existing = new Set(Array.from(sel.options).map(o => o.value));
     langs.forEach(l => { if (!existing.has(l.id)) { const o = document.createElement('option'); o.value = l.id; o.textContent = l.name; sel.appendChild(o); } });
+  } catch {}
+}
+
+async function checkEngineStatus() {
+  try {
+    const r = await fetch(API.status);
+    if (!r.ok) return;
+    const data = await r.json();
+    Object.keys(data).forEach(key => {
+      const info = data[key];
+      const el = document.getElementById(`status-${key.replace('_', '-')}`);
+      if (el) {
+        el.className = 'status-badge';
+        if (info.loaded) el.classList.add('cached');
+        else if (info.available) el.classList.add('online');
+      }
+    });
   } catch {}
 }
 
