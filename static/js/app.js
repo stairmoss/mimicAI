@@ -119,6 +119,20 @@ function bindEvents() {
       localStorage.setItem(KEYS.theme, state.theme);
     });
   }
+
+  $$('.symbol-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sym = btn.dataset.symbol;
+      const ta = $('#chat-input');
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const text = ta.value;
+      ta.value = text.substring(0, start) + sym + text.substring(end);
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = start + sym.length;
+      ta.dispatchEvent(new Event('input'));
+    });
+  });
 }
 
 /* ───────── Chat ───────── */
