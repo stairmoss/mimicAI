@@ -164,9 +164,7 @@ async function sendMessage() {
       state.messages.push({ role: 'assistant', content: aiText });
       addActions(msgEl, aiText);
       // Auto-play TTS if desired
-      const autoTtsEl = document.getElementById('auto-tts');
-      const autoTts = autoTtsEl ? autoTtsEl.checked : true; // Default to true!
-      if (autoTts && state.selectedVoice) {
+      if (state.autoSpeak && state.selectedVoice) {
         const btn = msgEl.querySelector('.tts-btn');
         if (btn) playTts(aiText, btn);
       }
