@@ -68,3 +68,6 @@ voices/
 # PIP/install junk files
 =1.14.0
 =8.2.1
+
+# Large backups
+.git.bak/
