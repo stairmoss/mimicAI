@@ -467,6 +467,72 @@ def list_languages():
     return jsonify({"languages": FALLBACK_LANGUAGES, "total": len(FALLBACK_LANGUAGES)})
 
 
+# ── Routes: Engine Status ──────────────────────────────────────────────────────
+
+@app.route("/api/status", methods=["GET"])
+def get_status():
+    """Retrieve engine status and availability."""
+    status = {}
+    
+    # 1. Piper
+    try:
+        import piper_tts
+        status["piper"] = {
+            "available": piper_tts.is_available(),
+            "loaded": getattr(piper_tts, "_loaded_model_path", None) is not None
+        }
+    except Exception:
+        status["piper"] = {"available": False, "loaded": False}
+        
+    # 2. Kokoro
+    try:
+        import kokoro_onnx  # noqa: F401
+        model_path = "/mnt/18A660FBA660DB30/voiceclone_AI/mimicAI/kokoro_models/kokoro-v1.0.int8.onnx"
+        voices_path = "/mnt/18A660FBA660DB30/voiceclone_AI/mimicAI/kokoro_models/voices-v1.0.bin"
+        available = os.path.exists(model_path) and os.path.exists(voices_path)
+        from clone_engine import _kokoro_model
+        status["kokoro"] = {
+            "available": available,
+            "loaded": _kokoro_model is not None
+        }
+    except Exception:
+        status["kokoro"] = {"available": False, "loaded": False}
+
+    # 3. OpenVoice
+    try:
+        from clone_engine import is_available as ce_available
+        status["openvoice"] = {
+            "available": ce_available(),
+            "loaded": True
+        }
+    except Exception:
+        status["openvoice"] = {"available": False, "loaded": False}
+
+    # 4. OmniVoice Full
+    try:
+        from clonemodel import OmniVoice  # noqa: F401
+        from voice_manager import _omnivoice_full_model
+        status["omnivoice"] = {
+            "available": True,
+            "loaded": _omnivoice_full_model is not None
+        }
+    except Exception:
+        status["omnivoice"] = {"available": False, "loaded": False}
+
+    # 5. OmniVoice Lite
+    try:
+        from clonemodel.lite.omnivoice_lite import OmniVoiceLite  # noqa: F401
+        from voice_manager import _omnivoice_model
+        status["omnivoice_lite"] = {
+            "available": True,
+            "loaded": _omnivoice_model is not None
+        }
+    except Exception:
+        status["omnivoice_lite"] = {"available": False, "loaded": False}
+
+    return jsonify(status)
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _detect_mimetype(data: bytes) -> str:
