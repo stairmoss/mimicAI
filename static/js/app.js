@@ -17,6 +17,7 @@ const KEYS = {
   voice: 'mimicai:voice',
   autoSpeak: 'mimicai:auto-speak',
   lightweightTts: 'mimicai:lightweight-tts',
+  theme: 'mimicai:theme',
 };
 
 /* ───────── State ───────── */
@@ -32,6 +33,7 @@ const state = {
   autoSpeak: false,
   lightweightTts: false,
   currentAudio: null,
+  theme: 'dark',
 };
 
 const $ = (s) => document.querySelector(s);
@@ -42,6 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
   state.selectedVoice = localStorage.getItem(KEYS.voice) || null;
   state.autoSpeak = localStorage.getItem(KEYS.autoSpeak) === 'true';
   state.lightweightTts = localStorage.getItem(KEYS.lightweightTts) === 'true';
+  state.theme = localStorage.getItem(KEYS.theme) || 'dark';
+  document.documentElement.setAttribute('data-theme', state.theme);
   bindEvents();
   loadVoices();
   loadLanguages();
@@ -104,6 +108,15 @@ function bindEvents() {
         state.currentAudio.pause();
         setCurrentAudio(null);
       }
+    });
+  }
+
+  const themeToggle = $('#theme-toggle');
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      state.theme = state.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', state.theme);
+      localStorage.setItem(KEYS.theme, state.theme);
     });
   }
 }

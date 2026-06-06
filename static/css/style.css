@@ -28,6 +28,24 @@
   --font: 'Inter', -apple-system, sans-serif;
 }
 
+:root[data-theme="light"] {
+  --bg: #f8f9fa;
+  --bg2: #ffffff;
+  --bg3: #f1f3f5;
+  --bg4: #e9ecef;
+  --bg5: #dee2e6;
+  --accent: #6355e6;
+  --accent2: #4c3fd1;
+  --accent-glow: rgba(99,85,230,0.12);
+  --accent-dim: rgba(99,85,230,0.06);
+  --text: #1a1a1e;
+  --text2: #4a4a52;
+  --text3: #868e96;
+  --border: rgba(0,0,0,0.08);
+  --border2: rgba(0,0,0,0.14);
+  --shadow: 0 8px 30px rgba(0,0,0,0.08);
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
@@ -173,6 +191,14 @@ html, body {
   transition: all var(--tr); display: flex;
 }
 .toggle-sidebar-btn:hover { background: var(--bg3); color: var(--text); }
+.theme-toggle-btn {
+  background: none; border: none; color: var(--text3);
+  cursor: pointer; padding: 6px; border-radius: var(--r-sm);
+  transition: all var(--tr); display: flex; align-items: center; justify-content: center;
+}
+.theme-toggle-btn:hover { background: var(--bg3); color: var(--text); }
+:root[data-theme="light"] .sun-icon { display: block !important; }
+:root[data-theme="light"] .moon-icon { display: none !important; }
 .header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
 
 .header-right { display: flex; align-items: center; gap: 10px; }
