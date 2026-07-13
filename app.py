@@ -24,6 +24,7 @@ from flask import Flask, Response, jsonify, render_template, request, send_from_
 from flask_cors import CORS
 
 from voice_manager import VoiceManager
+from gemini_helper import is_gemini_available, GEMINI_ENDPOINT, GEMINI_MODEL, GEMINI_API_KEY
 
 # Load local .env file if present
 env_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -37,9 +38,15 @@ if os.path.exists(env_path):
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_API_URL = os.environ.get(
+    "GEMINI_API_URL",
+    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+)
 HACKCLUB_API_URL = "https://ai.hackclub.com/proxy/v1/chat/completions"
 HACKCLUB_API_KEY = os.environ.get("HACKCLUB_API_KEY", "")
-CHAT_MODEL = "qwen/qwen3-32b"
+CHAT_MODEL = os.environ.get("CHAT_MODEL", "qwen/qwen3-32b")
 
 SYSTEM_PROMPT = (
     "You are MimicAI, a friendly and concise AI assistant. "
@@ -196,14 +203,17 @@ def chat():
 
     def stream_response():
         try:
+            target_url = GEMINI_API_URL if os.environ.get("GEMINI_API_KEY") else HACKCLUB_API_URL
+            api_key = os.environ.get("GEMINI_API_KEY") or HACKCLUB_API_KEY
+            model_name = GEMINI_MODEL if os.environ.get("GEMINI_API_KEY") else CHAT_MODEL
             resp = requests.post(
-                HACKCLUB_API_URL,
+                target_url,
                 headers={
-                    "Authorization": f"Bearer {HACKCLUB_API_KEY}",
+                    "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": CHAT_MODEL,
+                    "model": model_name,
                     "messages": messages,
                     "stream": True,
                     "max_tokens": 1024,
