@@ -20,3 +20,14 @@ def get_gemini_config() -> Dict[str, str]:
         "model": os.environ.get("GEMINI_MODEL", "gemini-2.0-flash"),
         "available": is_gemini_available(),
     }
+
+
+def build_gemini_chat_payload(messages: List[Dict[str, str]], model: Optional[str] = None) -> Dict:
+    selected_model = model or os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+    return {
+        "model": selected_model,
+        "messages": messages,
+        "stream": True,
+        "max_tokens": 1024,
+        "temperature": 0.7,
+    }
