@@ -31,3 +31,10 @@ def build_gemini_chat_payload(messages: List[Dict[str, str]], model: Optional[st
         "max_tokens": 1024,
         "temperature": 0.7,
     }
+
+
+def validate_gemini_request() -> tuple[bool, Optional[str]]:
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not key:
+        return False, "GEMINI_API_KEY is not configured"
+    return True, None
