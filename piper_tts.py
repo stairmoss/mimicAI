@@ -291,7 +291,8 @@ def synthesize(
         return None
 
     # Normalise text
-    clean_text = normalize_text(text)
+    from clonemodel.text_cleaner import clean_tts_text, expand_indian_number_terms
+    clean_text = expand_indian_number_terms(clean_tts_text(normalize_text(text)))
     if not clean_text:
         logger.warning("Empty text after normalisation")
         return None
