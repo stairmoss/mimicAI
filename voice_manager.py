@@ -315,7 +315,7 @@ class VoiceManager:
             speed = float(design.get("speed", 1.0))
         except (ValueError, TypeError):
             speed = 1.0
-        speed = max(0.5, min(2.0, speed))
+        speed = max(0.6, min(1.8, speed))
         
         # Map gender + accent to Kokoro voice
         if accent == "uk":
@@ -332,7 +332,7 @@ class VoiceManager:
             from clone_engine import _get_kokoro
             kokoro = _get_kokoro()
             if kokoro is not None:
-                speed = max(0.5, min(2.0, speed))
+                speed = max(0.6, min(1.8, speed))
                 samples, sample_rate = kokoro.create(text[:500], voice=voice, speed=speed, lang=lang)
                 if samples is not None and len(samples) > 0:
                     self.last_tts_engine = "kokoro"
