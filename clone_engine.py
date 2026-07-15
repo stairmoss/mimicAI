@@ -59,7 +59,7 @@ def _get_converter():
                 os.path.join(ckpt_dir, "config.json"), device="cpu"
             )
             conv.load_ckpt(os.path.join(ckpt_dir, "checkpoint.pth"))
-            logger.info(f"OpenVoice converter loaded in {time.monotonic()-t0:.1f}s")
+            logger.info(f"OpenVoice tone color converter ready in {time.monotonic()-t0:.1f}s")
             _converter = conv
             return conv
 
