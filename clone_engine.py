@@ -285,6 +285,7 @@ def _generate_base_tts(text: str, language: str, piper_model_path: Optional[str]
 
 
 def _cleanup_temp(path: str):
+    """Safely remove temp WAV files."""
     """Remove temp file silently."""
     try:
         if path and os.path.exists(path):
