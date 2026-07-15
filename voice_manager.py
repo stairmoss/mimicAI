@@ -295,7 +295,7 @@ class VoiceManager:
             self.last_tts_engine = "piper"
             return piper_result
 
-        logger.error("Real voice TTS failed.")
+        logger.info("Falling back to local Piper synthesis engine")
         return None
 
     def _generate_designed_voice(self, text: str, design: dict) -> Optional[bytes]:
