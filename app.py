@@ -442,7 +442,9 @@ def record_voice():
 
     audio_data = audio_file.read()
     if len(audio_data) < 1000:
-        return jsonify({"error": "Audio too short. Record at least 3 seconds."}), 400
+        valid_sz, sz_err = validate_audio_file_size(len(audio_data))
+    if not valid_sz:
+        return jsonify({"error": sz_err}), 400
 
     filename = audio_file.filename or "recording.webm"
     ext = filename.rsplit(".", 1)[-1] if "." in filename else "webm"
