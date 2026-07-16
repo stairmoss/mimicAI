@@ -24,6 +24,7 @@ from flask import Flask, Response, jsonify, render_template, request, send_from_
 from flask_cors import CORS
 
 from voice_manager import VoiceManager
+from clonemodel.profile_validator import validate_profile_name, validate_audio_file_size
 from gemini_helper import is_gemini_available, GEMINI_ENDPOINT, GEMINI_MODEL, GEMINI_API_KEY
 
 # Load local .env file if present
