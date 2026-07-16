@@ -163,6 +163,7 @@ class VoiceManager:
             "audio_file": wav_path.name,
             "original_file": audio_path.name,
             "clone_ready": True,
+            "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
         with open(profile_dir / "metadata.json", "w") as f:
             json.dump(meta, f, indent=2)
