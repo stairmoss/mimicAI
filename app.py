@@ -611,3 +611,5 @@ if __name__ == "__main__":
             app.run(host=host, port=alt, debug=False, threaded=True)
         else:
             raise
+
+# commit update: updated frontend app js to display gemini api status
