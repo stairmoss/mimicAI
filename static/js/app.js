@@ -284,7 +284,7 @@ async function sendMessage() {
     }
   } catch (err) {
     removeTyping();
-    addMsg('ai', `Connection error: ${err.message}`);
+    addMsg('ai', `Connection error (switching to fallback): ${err.message}`);
   } finally {
     state.isGenerating = false;
     setSendBtn(false);
