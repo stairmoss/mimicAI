@@ -221,7 +221,7 @@ def chat():
                     "temperature": 0.7,
                 },
                 stream=True,
-                timeout=60,
+                timeout=45,
             )
 
             if resp.status_code != 200:
