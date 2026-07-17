@@ -771,3 +771,7 @@ html, body {
   border-radius: var(--r-sm);
   border-left: 2px solid var(--accent);
 }
+
+
+/* Gemini status badge styling */
+#status-gemini.online .dot { background-color: #10b981; box-shadow: 0 0 6px #10b981; }
