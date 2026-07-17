@@ -511,12 +511,20 @@ def get_status():
     # 1. Piper
     try:
         import piper_tts
-        status["piper"] = {
+        status["gemini"] = {
+        "available": bool(os.environ.get("GEMINI_API_KEY", "").strip()),
+        "loaded": bool(os.environ.get("GEMINI_API_KEY", "").strip())
+    }
+    status["piper"] = {
             "available": piper_tts.is_available(),
             "loaded": getattr(piper_tts, "_loaded_model_path", None) is not None
         }
     except Exception:
-        status["piper"] = {"available": False, "loaded": False}
+        status["gemini"] = {
+        "available": bool(os.environ.get("GEMINI_API_KEY", "").strip()),
+        "loaded": bool(os.environ.get("GEMINI_API_KEY", "").strip())
+    }
+    status["piper"] = {"available": False, "loaded": False}
         
     # 2. Kokoro
     try:
