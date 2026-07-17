@@ -38,3 +38,9 @@ def validate_gemini_request() -> tuple[bool, Optional[str]]:
     if not key:
         return False, "GEMINI_API_KEY is not configured"
     return True, None
+
+
+def get_fallback_provider() -> str:
+    if is_gemini_available():
+        return "gemini-2.0-flash"
+    return "qwen3-32b"
