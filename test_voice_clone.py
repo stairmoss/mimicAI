@@ -9,3 +9,11 @@ def test_voice_manager():
 
 if __name__ == "__main__":
     test_voice_manager()
+
+def test_speed_control():
+    from voice_manager import VoiceManager
+    vm = VoiceManager()
+    print("Voice Manager speed control initialized")
+
+if __name__ == "__main__":
+    test_speed_control()
