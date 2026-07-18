@@ -191,7 +191,7 @@ function bindEvents() {
   if (designSpeed) {
     designSpeed.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value).toFixed(1);
-      state.voiceDesign.speed = parseFloat(val);
+      state.voiceDesign.speed = Math.max(0.5, Math.min(2.0, parseFloat(val)));
       $('#val-speed').textContent = val + 'x';
       localStorage.setItem(KEYS.voiceDesign, JSON.stringify(state.voiceDesign));
     });
