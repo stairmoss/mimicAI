@@ -775,3 +775,5 @@ html, body {
 
 /* Gemini status badge styling */
 #status-gemini.online .dot { background-color: #10b981; box-shadow: 0 0 6px #10b981; }
+
+.design-slider { accent-color: #6366f1; transition: all 0.2s ease; }
