@@ -420,6 +420,7 @@ async function playTts(text, btn) {
         lightweight: state.lightweightTts,
         strict_clone: false,
         voice_design: voiceDesign,
+        speed_rate: state.voiceDesign.speed,
       }),
     });
 
