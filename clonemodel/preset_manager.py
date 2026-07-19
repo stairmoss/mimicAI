@@ -7,3 +7,10 @@ PRESET_VOICES = [
 
 def list_presets():
     return PRESET_VOICES
+
+
+def get_preset_by_id(preset_id: str):
+    for p in PRESET_VOICES:
+        if p["id"] == preset_id:
+            return p
+    return None
