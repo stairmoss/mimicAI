@@ -660,7 +660,7 @@ async function saveVoice() {
   const fd = new FormData();
   fd.append('audio', blob, `recording.${ext}`);
   fd.append('name', name);
-  fd.append('language', lang);
+  fd.append('language', lang || 'en');
 
   const btn = $('#save-voice-btn');
   btn.disabled = true; btn.textContent = 'Saving…';
