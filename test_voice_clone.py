@@ -17,3 +17,7 @@ def test_speed_control():
 
 if __name__ == "__main__":
     test_speed_control()
+
+def test_preset_loading():
+    from clonemodel.preset_manager import list_presets
+    print("Presets available:", len(list_presets()))
