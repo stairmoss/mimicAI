@@ -613,3 +613,5 @@ if __name__ == "__main__":
             raise
 
 # commit update: updated frontend app js to display gemini api status
+
+# commit update: added stop speech button in main header bar
