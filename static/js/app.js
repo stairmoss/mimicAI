@@ -451,7 +451,7 @@ async function playTts(text, btn) {
     btn.innerHTML = '✓ Cloned';
     setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 2000);
     
-    audio.play().catch(e => { toast('Playback failed: ' + e.message, 'error'); });
+    audio.controlsList = 'nodownload'; audio.play().catch(e => { toast('Playback failed: ' + e.message, 'error'); });
     
     if (engine) toast(`Generated via ${engine}`, 'info');
   } catch (err) {
