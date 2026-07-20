@@ -129,6 +129,7 @@ function bindEvents() {
       if (state.currentAudio) {
         state.currentAudio.pause();
         setCurrentAudio(null);
+        toast('Speech playback stopped', 'info');
       }
     });
   }
@@ -532,7 +533,8 @@ function setCurrentAudio(audio) {
   if (audio) {
     audio.onplay = () => { if (stopBtn) stopBtn.style.display = 'flex'; };
     audio.onpause = () => { if (stopBtn) stopBtn.style.display = 'none'; };
-    audio.onended = () => { if (stopBtn) stopBtn.style.display = 'none'; setCurrentAudio(null); };
+    audio.onended = () => { if (stopBtn) stopBtn.style.display = 'none'; setCurrentAudio(null);
+        toast('Speech playback stopped', 'info'); };
     if (stopBtn) stopBtn.style.display = 'flex';
   } else {
     if (stopBtn) stopBtn.style.display = 'none';
@@ -557,7 +559,8 @@ async function previewVoice(voice, btn) {
     const a = new Audio(url);
     setCurrentAudio(a);
     await a.play();
-    a.onended = () => { setCurrentAudio(null); URL.revokeObjectURL(url); };
+    a.onended = () => { setCurrentAudio(null);
+        toast('Speech playback stopped', 'info'); URL.revokeObjectURL(url); };
   } catch (e) { toast(e.message, 'error'); }
   finally { btn.disabled = false; btn.innerHTML = orig; }
 }
