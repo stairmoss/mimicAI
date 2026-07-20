@@ -615,3 +615,5 @@ if __name__ == "__main__":
 # commit update: updated frontend app js to display gemini api status
 
 # commit update: added stop speech button in main header bar
+
+# commit update: fixed bug where audio player remained active after song ends
