@@ -448,7 +448,7 @@ async function playTts(text, btn) {
     
     setCurrentAudio(audio);
     
-    btn.innerHTML = '✓ Cloned';
+    btn.innerHTML = '▶ Replay Speech';
     setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 2000);
     
     audio.controlsList = 'nodownload'; audio.play().catch(e => { toast('Playback failed: ' + e.message, 'error'); });
