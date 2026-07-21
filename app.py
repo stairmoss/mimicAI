@@ -350,6 +350,8 @@ def tts_async_start():
             err_msg = str(exc) if FLASK_DEBUG else "Internal server error during synthesis"
             _update_job(job_id, status="error", error=err_msg)
 
+    from clonemodel.memory_utils import free_unused_memory
+    free_unused_memory()
     t = threading.Thread(target=_worker, daemon=True)
     t.start()
 
