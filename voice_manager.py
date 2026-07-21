@@ -1,3 +1,4 @@
+from clonemodel.memory_utils import free_unused_memory
 from clonemodel.preset_manager import list_presets
 from clonemodel.voice_config import check_audio_data_quality
 import gc
