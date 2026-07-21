@@ -373,7 +373,7 @@ def tts_async_status(job_id):
 
             status = job.get("status", "pending")
             progress = job.get("last_progress", {})
-            payload = {"status": status, "progress": progress}
+            payload = {"status": status, "progress": progress, "timestamp": time.time()}
 
             if status == "done":
                 payload["engine"] = job.get("engine", "unknown")
