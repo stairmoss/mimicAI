@@ -21,3 +21,9 @@ if __name__ == "__main__":
 def test_preset_loading():
     from clonemodel.preset_manager import list_presets
     print("Presets available:", len(list_presets()))
+
+def test_zero_shot_design():
+    from voice_manager import VoiceManager
+    vm = VoiceManager()
+    res = vm._generate_designed_voice("Hello test", {"gender": "female", "accent": "us"})
+    print("Zero shot test result:", res is not None or "Fallback active")
