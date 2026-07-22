@@ -43,6 +43,7 @@ const state = {
     accent: 'us',
     speed: 1.0,
     pitch: 1.0,
+    accent: 'us',
   },
 };
 
