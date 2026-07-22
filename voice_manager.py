@@ -312,6 +312,7 @@ class VoiceManager:
             gender = "female"
 
         accent = str(design.get("accent", "us")).lower()
+        if accent == "in": accent = "us"
         if accent not in ["us", "uk", "jp"]:
             accent = "us"
 
