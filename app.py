@@ -621,3 +621,5 @@ if __name__ == "__main__":
 # commit update: fixed bug where audio player remained active after song ends
 
 # commit update: added notification toast when audio playback finishes
+
+# commit update: added preview button for newly designed zero shot voices
