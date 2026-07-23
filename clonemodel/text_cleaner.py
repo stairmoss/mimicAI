@@ -16,3 +16,7 @@ def expand_indian_number_terms(text: str) -> str:
     text = re.sub(r'\blakh\b', 'lakh', text, flags=re.I)
     text = re.sub(r'\bcrore\b', 'crore', text, flags=re.I)
     return text
+
+
+def safe_strip_unknown_tags(text: str) -> str:
+    return re.sub(r'\[.*?\]', '', text).strip()
