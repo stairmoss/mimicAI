@@ -27,3 +27,8 @@ def test_zero_shot_design():
     vm = VoiceManager()
     res = vm._generate_designed_voice("Hello test", {"gender": "female", "accent": "us"})
     print("Zero shot test result:", res is not None or "Fallback active")
+
+def test_expressiveness_tags():
+    from clonemodel.text_cleaner import clean_tts_text
+    res = clean_tts_text("Hello [laughter] world")
+    print("Cleaned tag result:", res)
