@@ -6,6 +6,7 @@ def clean_tts_text(text: str) -> str:
         return ""
     text = re.sub(r'[\r\t]', ' ', text)
     text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'\[(applause|laughter|sigh|gasp)\]', ' ', text)
     return text.strip()
 
 
