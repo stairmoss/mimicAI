@@ -154,6 +154,7 @@ function bindEvents() {
       ta.value = text.substring(0, start) + sym + text.substring(end);
       ta.focus();
       ta.selectionStart = ta.selectionEnd = start + sym.length;
+      toast('Inserted ' + sym, 'info');
       ta.dispatchEvent(new Event('input'));
     });
   });
