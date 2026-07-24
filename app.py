@@ -96,6 +96,7 @@ FALLBACK_LANGUAGES = [
 
 app = Flask(__name__)
 cors_origins = os.environ.get("CORS_ALLOWED_ORIGINS", "*")
+logger.info(f"CORS origins configured: {cors_origins}")
 if cors_origins != "*":
     cors_origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
 CORS(app, resources={r"/api/*": {"origins": cors_origins}})
