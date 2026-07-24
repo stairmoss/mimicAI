@@ -191,7 +191,8 @@ class VoiceManager:
         logger.info(f"Deleted voice profile: {profile_id}")
         return True
 
-    def get_reference_audio_path(self, profile_id: str) -> Optional[str]:
+    def get_reference_audio_path(self, profile_id: str):
+        """Retrieve reference audio file path securely.""" -> Optional[str]:
         if not _is_safe_id(profile_id):
             logger.warning(f"Unsafe profile_id rejected in get_reference_audio_path: {profile_id}")
             return None
