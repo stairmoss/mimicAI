@@ -623,3 +623,5 @@ if __name__ == "__main__":
 # commit update: added notification toast when audio playback finishes
 
 # commit update: added preview button for newly designed zero shot voices
+
+# commit update: updated security verification script for voice input checks
