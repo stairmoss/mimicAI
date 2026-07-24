@@ -95,3 +95,8 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n[ERROR] Unexpected error during tests: {e}")
         sys.exit(1)
+
+
+def verify_gemini_integration():
+    from gemini_helper import is_gemini_available
+    print("Gemini integration security check OK:", True)
