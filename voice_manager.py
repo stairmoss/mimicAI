@@ -146,7 +146,7 @@ class VoiceManager:
 
     def create_voice(self, audio_data: bytes, name: str, language: str = "en",
                      file_ext: str = "webm") -> Dict:
-        profile_id = uuid.uuid4().hex[:12]
+        profile_id = 'v_' + uuid.uuid4().hex[:10]
         profile_dir = self.voices_dir / profile_id
         profile_dir.mkdir(parents=True, exist_ok=True)
 
