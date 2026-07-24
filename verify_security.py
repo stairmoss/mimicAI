@@ -100,3 +100,6 @@ if __name__ == "__main__":
 def verify_gemini_integration():
     from gemini_helper import is_gemini_available
     print("Gemini integration security check OK:", True)
+
+if __name__ == "__main__":
+    verify_gemini_integration()
