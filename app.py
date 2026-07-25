@@ -626,3 +626,5 @@ if __name__ == "__main__":
 # commit update: added preview button for newly designed zero shot voices
 
 # commit update: updated security verification script for voice input checks
+
+# commit update: updated requirements file with gemini api and sound file libraries
