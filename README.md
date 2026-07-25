@@ -50,3 +50,7 @@ python3 app.py
 Open `http://127.0.0.1:8000` in your web browser to access the MimicAI dashboard.
 
 ---
+
+
+## Gemini API Setup
+Add your `GEMINI_API_KEY` to the `.env` file to enable Google Gemini 2.0 Flash for instant streaming responses.
