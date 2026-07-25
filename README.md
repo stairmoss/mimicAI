@@ -54,3 +54,9 @@ Open `http://127.0.0.1:8000` in your web browser to access the MimicAI dashboard
 
 ## Gemini API Setup
 Add your `GEMINI_API_KEY` to the `.env` file to enable Google Gemini 2.0 Flash for instant streaming responses.
+
+## Voice Cloning Quick Start
+1. Open the MimicAI website interface.
+2. Click **Record Voice Sample** in the sidebar.
+3. Record 5–10 seconds of clear speech and click **Save Voice Profile**.
+4. Select your voice profile and start chatting!
