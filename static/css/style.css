@@ -781,3 +781,6 @@ html, body {
 .audio-player-container audio { background: #1f2937; border: 1px solid #374151; }
 
 .symbol-btn { border-radius: 12px; font-size: 11px; padding: 4px 8px; }
+
+/* Smooth UI polishing */
+.main { transition: background-color 0.3s ease; }
