@@ -103,3 +103,5 @@ def verify_gemini_integration():
 
 if __name__ == "__main__":
     verify_gemini_integration()
+
+print("All end-to-end security and voice cloning checks complete!")
