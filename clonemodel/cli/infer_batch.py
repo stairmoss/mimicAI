@@ -21,7 +21,7 @@ Distributes TTS generation across multiple GPUs for large-scale tasks.
 Reads a JSONL test list, generates audio in parallel, and saves results.
 
 Usage:
-    MimicAI-infer-batch --model k2-fsa/MimicVoice \
+    MimicAI-infer-batch --model k2-fsa/OmniVoice \
         --test_list test.jsonl --res_dir results/
 
 Test list format (JSONL, one JSON object per line):
@@ -71,7 +71,7 @@ def get_parser():
     parser.add_argument(
         "--model",
         type=str,
-        default="k2-fsa/MimicVoice",
+        default="k2-fsa/OmniVoice",
         help="Path to the model checkpoint (local dir or HF repo id). "
         "Audio tokenizer is expected at <checkpoint>/audio_tokenizer/.",
     )

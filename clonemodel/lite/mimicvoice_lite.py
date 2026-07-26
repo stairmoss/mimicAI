@@ -28,7 +28,7 @@ QUALITY_PRESETS = {
 }
 
 
-class OmniVoiceLite:
+class MimicVoiceLite:
     def __init__(self, shard_dir, config, max_memory_gb=3.5, device="cpu", enable_prefetch=True):
         self.shard_dir = Path(shard_dir)
         self.config = config
@@ -79,7 +79,7 @@ class OmniVoiceLite:
         if device is None:
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
-        logger.info(f"Loading OmniVoice Lite from {shard_path} on {device} (memory: {max_memory_gb:.1f}GB)")
+        logger.info(f"Loading MimicVoice Lite from {shard_path} on {device} (memory: {max_memory_gb:.1f}GB)")
 
         model = cls(shard_dir=str(shard_path), config=config, max_memory_gb=max_memory_gb, device=device, enable_prefetch=enable_prefetch)
 

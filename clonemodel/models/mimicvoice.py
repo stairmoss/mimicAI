@@ -48,17 +48,17 @@ from transformers import (
 from transformers.modeling_outputs import ModelOutput
 from transformers.models.auto import CONFIG_MAPPING, AutoConfig
 
-from omnivoice.utils.audio import (
+from clonemodel.utils.audio import (
     cross_fade_chunks,
     fade_and_pad_audio,
     load_audio,
     remove_silence,
     trim_long_audio,
 )
-from omnivoice.utils.duration import RuleDurationEstimator
-from omnivoice.utils.lang_map import LANG_IDS, LANG_NAMES
-from omnivoice.utils.text import add_punctuation, chunk_text_punctuation
-from omnivoice.utils.voice_design import (
+from clonemodel.utils.duration import RuleDurationEstimator
+from clonemodel.utils.lang_map import LANG_IDS, LANG_NAMES
+from clonemodel.utils.text import add_punctuation, chunk_text_punctuation
+from clonemodel.utils.voice_design import (
     _INSTRUCT_ALL_VALID,
     _INSTRUCT_EN_TO_ZH,
     _INSTRUCT_MUTUALLY_EXCLUSIVE,
@@ -84,7 +84,7 @@ class VoiceClonePrompt:
 
 
 @dataclass
-class OmniVoiceGenerationConfig:
+class MimicVoiceGenerationConfig:
     num_step: int = 32
     guidance_scale: float = 2.0
     t_shift: float = 0.1
@@ -116,7 +116,7 @@ class GenerationTask:
     ref_rms: List[Optional[float]]
     speed: Optional[List[float]] = None
 
-    def get_indices(self, config: OmniVoiceGenerationConfig, frame_rate: int):
+    def get_indices(self, config: MimicVoiceGenerationConfig, frame_rate: int):
         threshold = int(config.audio_chunk_threshold * frame_rate)
         short_idx = [i for i, l in enumerate(self.target_lens) if l <= threshold]
         long_idx = [i for i, l in enumerate(self.target_lens) if l > threshold]
@@ -139,7 +139,7 @@ class GenerationTask:
 
 
 @dataclass
-class OmniVoiceModelOutput(ModelOutput):
+class MimicVoiceModelOutput(ModelOutput):
     loss: Optional[torch.Tensor] = None
     logits: Optional[torch.Tensor] = None
 
@@ -149,7 +149,7 @@ class OmniVoiceModelOutput(ModelOutput):
 # ---------------------------------------------------------------------------
 
 
-class OmniVoiceConfig(PretrainedConfig):
+class MimicVoiceConfig(PretrainedConfig):
     model_type = "omnivoice"
     sub_configs = {"llm_config": AutoConfig}
 
@@ -177,21 +177,21 @@ class OmniVoiceConfig(PretrainedConfig):
         self.audio_codebook_weights = audio_codebook_weights
 
 
-def _resolve_model_path(name_or_path: str) -> str:
+def _resolve_model_path(name_or_path: str, local_files_only: bool = False) -> str:
     if os.path.isdir(name_or_path):
         return name_or_path
     from huggingface_hub import snapshot_download
 
-    return snapshot_download(name_or_path)
+    return snapshot_download(name_or_path, local_files_only=local_files_only)
 
 
-class OmniVoice(PreTrainedModel):
+class MimicVoice(PreTrainedModel):
     _supports_flex_attn = True
     _supports_flash_attn_2 = True
     _supports_sdpa = True
-    config_class = OmniVoiceConfig
+    config_class = MimicVoiceConfig
 
-    def __init__(self, config: OmniVoiceConfig, llm: Optional[PreTrainedModel] = None):
+    def __init__(self, config: MimicVoiceConfig, llm: Optional[PreTrainedModel] = None):
         super().__init__(config)
 
         if llm is not None:
@@ -236,6 +236,7 @@ class OmniVoice(PreTrainedModel):
         train_mode = kwargs.pop("train", False)
         load_asr = kwargs.pop("load_asr", False)
         asr_model_name = kwargs.pop("asr_model_name", "openai/whisper-large-v3-turbo")
+        local_files_only = kwargs.get("local_files_only", False)
 
         # Suppress noisy INFO logs from transformers/huggingface_hub during loading
         _prev_disable = logging.root.manager.disable
@@ -243,7 +244,7 @@ class OmniVoice(PreTrainedModel):
 
         try:
             # Resolve to local path first; download only if not already cached
-            resolved_path = _resolve_model_path(pretrained_model_name_or_path)
+            resolved_path = _resolve_model_path(pretrained_model_name_or_path, local_files_only=local_files_only)
 
             model = super().from_pretrained(resolved_path, *args, **kwargs)
 
@@ -254,7 +255,8 @@ class OmniVoice(PreTrainedModel):
 
                 if not os.path.isdir(audio_tokenizer_path):
                     audio_tokenizer_path = _resolve_model_path(
-                        "eustlb/higgs-audio-v2-tokenizer"
+                        "eustlb/higgs-audio-v2-tokenizer",
+                        local_files_only=local_files_only
                     )
 
                 # higgs-audio-v2-tokenizer does not support MPS
@@ -444,7 +446,7 @@ class OmniVoice(PreTrainedModel):
             )
             loss = (layer_means * weights).sum()
 
-        return OmniVoiceModelOutput(
+        return MimicVoiceModelOutput(
             loss=loss,
             logits=audio_logits,
         )
@@ -480,7 +482,7 @@ class OmniVoice(PreTrainedModel):
         instruct: Union[str, list[str], None] = None,
         duration: Union[float, list[Optional[float]], None] = None,
         speed: Union[float, list[Optional[float]], None] = None,
-        generation_config: Optional[OmniVoiceGenerationConfig] = None,
+        generation_config: Optional[MimicVoiceGenerationConfig] = None,
         **kwargs,
     ) -> list[np.ndarray]:
         """Generate speech audio given text in various modes.
@@ -538,12 +540,12 @@ class OmniVoice(PreTrainedModel):
         if self.audio_tokenizer is None or self.text_tokenizer is None:
             raise RuntimeError(
                 "Model is not loaded with audio/text tokenizers. Make sure you "
-                "loaded the model with OmniVoice.from_pretrained()."
+                "loaded the model with MimicVoice.from_pretrained()."
             )
         gen_config = (
             generation_config
             if generation_config is not None
-            else OmniVoiceGenerationConfig.from_dict(kwargs)
+            else MimicVoiceGenerationConfig.from_dict(kwargs)
         )
 
         self.eval()
@@ -613,7 +615,7 @@ class OmniVoice(PreTrainedModel):
         if self.audio_tokenizer is None:
             raise RuntimeError(
                 "Audio tokenizer is not loaded. Make sure you loaded the model "
-                "with OmniVoice.from_pretrained()."
+                "with MimicVoice.from_pretrained()."
             )
 
         if isinstance(ref_audio, str):
@@ -700,7 +702,7 @@ class OmniVoice(PreTrainedModel):
         self,
         tokens: Union[torch.Tensor, List[torch.Tensor]],
         rms: Union[float, None],
-        gen_config: OmniVoiceGenerationConfig,
+        gen_config: MimicVoiceGenerationConfig,
     ) -> np.ndarray:
         """
         Args:
@@ -774,7 +776,7 @@ class OmniVoice(PreTrainedModel):
         return generated_audio
 
     def _generate_chunked(
-        self, task: GenerationTask, gen_config: OmniVoiceGenerationConfig
+        self, task: GenerationTask, gen_config: MimicVoiceGenerationConfig
     ) -> List[List[torch.Tensor]]:
         """Generate long audio by splitting text into chunks and batching.
 
@@ -1132,14 +1134,14 @@ class OmniVoice(PreTrainedModel):
         }
 
     def _generate_iterative(
-        self, task: GenerationTask, gen_config: OmniVoiceGenerationConfig
+        self, task: GenerationTask, gen_config: MimicVoiceGenerationConfig
     ) -> List[torch.Tensor]:
         """N-step iterative unmasked decoding.
 
         Args:
             task: A :class:`GenerationTask` containing batch texts, target
                 lengths, languages, instructions, and optional reference data.
-            gen_config: A :class:`OmniVoiceGenerationConfig` controlling
+            gen_config: A :class:`MimicVoiceGenerationConfig` controlling
                 decoding steps, guidance, temperatures, etc.
         Returns:
             List of generated audio token tensors of shape (C, T) (one per
@@ -1329,7 +1331,7 @@ def _mask_mod_packed(document_ids, b, h, q_idx, kv_idx):
 
 
 def _resolve_language(language: Optional[str]) -> Union[str, None]:
-    from omnivoice.utils.lang_map import LANG_IDS, LANG_NAME_TO_ID
+    from clonemodel.utils.lang_map import LANG_IDS, LANG_NAME_TO_ID
 
     if language is None or language.lower() == "none":
         return None
@@ -1583,5 +1585,12 @@ def _combine_text(text, ref_text: Optional[str] = None) -> str:
 # Register with HuggingFace Auto classes
 # ---------------------------------------------------------------------------
 
-AutoConfig.register("omnivoice", OmniVoiceConfig)
-AutoModel.register(OmniVoiceConfig, OmniVoice)
+AutoConfig.register("omnivoice", MimicVoiceConfig)
+AutoModel.register(MimicVoiceConfig, MimicVoice)
+
+
+# Backward-compatible aliases
+OmniVoice = MimicVoice
+OmniVoiceConfig = MimicVoiceConfig
+OmniVoiceGenerationConfig = MimicVoiceGenerationConfig
+OmniVoiceModelOutput = MimicVoiceModelOutput

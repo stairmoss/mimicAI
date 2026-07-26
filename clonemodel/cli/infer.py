@@ -5,17 +5,17 @@ voice design, or auto voice.
 
 Usage:
     # Voice cloning
-    MimicAI-infer --model k2-fsa/MimicVoice \
+    MimicAI-infer --model k2-fsa/OmniVoice \
         --text "Hello, this is a text for text-to-speech." \
         --ref_audio ref.wav --ref_text "Reference transcript." --output out.wav
 
     # Voice design
-    MimicAI-infer --model k2-fsa/MimicVoice \
+    MimicAI-infer --model k2-fsa/OmniVoice \
         --text "Hello, this is a text for text-to-speech." \
         --instruct "male, British accent" --output out.wav
 
     # Auto voice
-    MimicAI-infer --model k2-fsa/MimicVoice \
+    MimicAI-infer --model k2-fsa/OmniVoice \
         --text "Hello, this is a text for text-to-speech." --output out.wav
 """
 
@@ -47,7 +47,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--model",
         type=str,
-        default="k2-fsa/MimicVoice",
+        default="k2-fsa/OmniVoice",
         help="Model checkpoint path or HuggingFace repo id.",
     )
     parser.add_argument(

@@ -15,16 +15,16 @@ warnings.filterwarnings(
 )
 
 try:
-    __version__ = version("omnivoice")
+    __version__ = version("mimicvoice")
 except PackageNotFoundError:
     __version__ = "0.0.0"
 
 try:
-    from clonemodel.models.omnivoice import (
-        OmniVoice,
-        OmniVoiceConfig,
-        OmniVoiceGenerationConfig,
+    from clonemodel.models.mimicvoice import (
+        MimicVoice,
+        MimicVoiceConfig,
+        MimicVoiceGenerationConfig,
     )
-    __all__ = ["OmniVoice", "OmniVoiceConfig", "OmniVoiceGenerationConfig"]
+    __all__ = ["MimicVoice", "MimicVoiceConfig", "MimicVoiceGenerationConfig"]
 except ImportError:
     __all__ = []

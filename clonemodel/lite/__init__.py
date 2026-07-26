@@ -1,3 +1,3 @@
-from clonemodel.lite.omnivoice_lite import OmniVoiceLite
+from clonemodel.lite.mimicvoice_lite import MimicVoiceLite
 
-__all__ = ["OmniVoiceLite"]
+__all__ = ["MimicVoiceLite"]

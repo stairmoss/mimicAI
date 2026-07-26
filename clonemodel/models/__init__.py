@@ -1,3 +1,3 @@
-from clonemodel.models.omnivoice import OmniVoice, OmniVoiceConfig, OmniVoiceGenerationConfig
+from clonemodel.models.mimicvoice import MimicVoice, MimicVoiceConfig, MimicVoiceGenerationConfig
 
-__all__ = ["OmniVoice", "OmniVoiceConfig", "OmniVoiceGenerationConfig"]
+__all__ = ["MimicVoice", "MimicVoiceConfig", "MimicVoiceGenerationConfig"]

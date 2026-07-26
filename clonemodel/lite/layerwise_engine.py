@@ -206,10 +206,22 @@ class LayerWiseAudioTokenizer:
         self.mm = memory_manager
         self.config = config
         self.sampling_rate = sampling_rate
-        encoder_layers = self.mm.get_layer_ids("tokenizer_encoder")
-        decoder_layers = self.mm.get_layer_ids("tokenizer_decoder")
-        self._has_sharded = bool(encoder_layers or decoder_layers)
+        self._has_sharded = False
         self._standard_tokenizer = None
+        try:
+            from transformers import HiggsAudioV2TokenizerModel
+            logger.info("Loading HiggsAudioV2TokenizerModel for LayerWiseAudioTokenizer...")
+            try:
+                self._standard_tokenizer = HiggsAudioV2TokenizerModel.from_pretrained(
+                    "eustlb/higgs-audio-v2-tokenizer", local_files_only=True
+                )
+            except Exception:
+                self._standard_tokenizer = HiggsAudioV2TokenizerModel.from_pretrained(
+                    "eustlb/higgs-audio-v2-tokenizer"
+                )
+            logger.info("HiggsAudioV2TokenizerModel loaded successfully.")
+        except Exception as exc:
+            logger.warning(f"Failed to load standard audio tokenizer: {exc}")
 
     def use_standard_tokenizer(self, tokenizer):
         self._standard_tokenizer = tokenizer

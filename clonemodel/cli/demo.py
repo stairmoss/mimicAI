@@ -118,7 +118,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--model",
-        default="k2-fsa/MimicVoice",
+        default="k2-fsa/OmniVoice",
         help="Model checkpoint path or HuggingFace repo id.",
     )
     parser.add_argument(
@@ -313,7 +313,7 @@ State-of-the-art text-to-speech model for **600+ languages**, supporting:
 - **Voice Clone** — Clone any voice from a reference audio
 - **Voice Design** — Create custom voices with speaker attributes
 
-Built with [MimicVoice](https://github.com/k2-fsa/MimicVoice)
+Built with [MimicVoice](https://github.com/k2-fsa/OmniVoice)
 by Xiaomi AI Lab Next-gen Kaldi team.
 """
         )

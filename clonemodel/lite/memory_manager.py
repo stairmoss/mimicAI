@@ -72,14 +72,20 @@ class TieredMemoryManager:
         return False
 
     def load_layer(self, layer_id: str) -> Dict[str, torch.Tensor]:
+        is_prefetch_target = False
         with self._prefetch_lock:
-            if self._prefetch_layer_id == layer_id and self._prefetch_buffer is not None:
-                self._prefetch_ready.wait(timeout=30)
-                self._active_layer = self._prefetch_buffer
-                self._active_layer_id = layer_id
-                self._prefetch_buffer = None
-                self._prefetch_layer_id = None
-                return self._active_layer
+            if self._prefetch_layer_id == layer_id:
+                is_prefetch_target = True
+
+        if is_prefetch_target:
+            self._prefetch_ready.wait(timeout=30)
+            with self._prefetch_lock:
+                if self._prefetch_layer_id == layer_id and self._prefetch_buffer is not None:
+                    self._active_layer = self._prefetch_buffer
+                    self._active_layer_id = layer_id
+                    self._prefetch_buffer = None
+                    self._prefetch_layer_id = None
+                    return self._active_layer
 
         start = time.monotonic()
         layer_path = self.shard_dir / f"{layer_id}.pt"

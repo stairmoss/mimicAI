@@ -71,7 +71,7 @@ def _load_MimicAI_full_model():
         try:
             from clonemodel import MimicVoice
 
-            model_name = os.environ.get("MimicAI_MODEL", "k2-fsa/MimicVoice")
+            model_name = os.environ.get("MimicAI_MODEL", "k2-fsa/OmniVoice")
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
             dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
@@ -82,6 +82,7 @@ def _load_MimicAI_full_model():
                 device_map=device,
                 torch_dtype=dtype,
                 load_asr=False,
+                local_files_only=True,
             )
             logger.info("Full MimicVoice ready in %.1fs", time.monotonic() - t0)
         except Exception as exc:
@@ -273,24 +274,23 @@ class VoiceManager:
             if result is not None:
                 self.last_tts_engine = "f5_tts"
                 return result
-            if not allow_fallback:
-                return None
 
             if lightweight:
                 result = self._generate_MimicAI_lite(text, voice_id, language, progress_callback)
                 if result is not None:
                     self.last_tts_engine = "mimicvoice_lite"
-                return result
-
-            result = self._generate_MimicAI_full(text, voice_id, language, progress_callback)
-            if result is not None:
-                self.last_tts_engine = "mimicvoice"
-                return result
+                    return result
+            else:
+                result = self._generate_MimicAI_full(text, voice_id, language, progress_callback)
+                if result is not None:
+                    self.last_tts_engine = "mimicvoice"
+                    return result
 
             result = self._generate_cloned(text, voice_id, language, progress_callback)
             if result is not None:
                 self.last_tts_engine = "openvoice"
                 return result
+
             if not allow_fallback:
                 return None
         # 2. Piper (Forced for everything)
@@ -375,6 +375,10 @@ class VoiceManager:
             ref_path = self.get_reference_audio_path(voice_id)
             if not ref_path:
                 logger.warning(f"No reference audio for voice {voice_id}")
+                return None
+
+            if not torch.cuda.is_available():
+                logger.warning("CUDA not available. Skipping F5-TTS on CPU to prevent stalls.")
                 return None
 
             f5_cli = self._find_executable("f5-tts_infer-cli")
