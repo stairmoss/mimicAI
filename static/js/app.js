@@ -670,10 +670,45 @@ async function saveVoice() {
   const btn = $('#save-voice-btn');
   btn.disabled = true; btn.textContent = 'Saving…';
 
+  // Open the training modal
+  $('#training-modal').classList.add('active');
+  const progressBar = $('#training-progress-bar');
+  const statusText = $('#training-status-text');
+
+  let progress = 10;
+  progressBar.style.width = '10%';
+  statusText.textContent = 'Uploading voice sample...';
+
+  const progressInterval = setInterval(() => {
+    if (progress < 90) {
+      progress += Math.floor(Math.random() * 8) + 2;
+      if (progress > 90) progress = 90;
+      progressBar.style.width = `${progress}%`;
+
+      if (progress < 30) {
+        statusText.textContent = 'Uploading voice sample...';
+      } else if (progress < 60) {
+        statusText.textContent = 'Transcribing reference speech patterns (Whisper)...';
+      } else {
+        statusText.textContent = 'Generating speaker profile and optimizing F5-TTS...';
+      }
+    }
+  }, 1000);
+
   try {
     const r = await fetch(API.voiceRecord, { method: 'POST', body: fd });
     const d = await r.json().catch(() => ({}));
+    
+    clearInterval(progressInterval);
+
     if (r.ok && d.success) {
+      progressBar.style.width = '100%';
+      statusText.textContent = 'Training complete!';
+      
+      // Short delay so they see the 100% completion
+      await new Promise(resolve => setTimeout(resolve, 800));
+      $('#training-modal').classList.remove('active');
+
       toast(`Voice "${name}" saved!`, 'success');
       closeModal();
       await loadVoices();
@@ -682,9 +717,18 @@ async function saveVoice() {
         $('#voice-select').value = d.voice.id;
         persistVoice(); renderVoiceList();
       }
-    } else toast(d.error || 'Save failed', 'error');
-  } catch (e) { toast('Connection error: ' + e.message, 'error'); }
-  finally { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Voice Profile'; }
+    } else {
+      $('#training-modal').classList.remove('active');
+      toast(d.error || 'Save failed', 'error');
+    }
+  } catch (e) {
+    clearInterval(progressInterval);
+    $('#training-modal').classList.remove('active');
+    toast('Connection error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Voice Profile';
+  }
 }
 
 /* ───────── Languages ───────── */

@@ -230,53 +230,117 @@ def _generate_base_tts(text: str, language: str, piper_model_path: Optional[str]
 
     Priority:
       1. Custom fine-tuned Piper ONNX model (if piper_model_path is set)
-      2. Bundled Piper model via piper_tts module (preferred default)
-      3. Kokoro TTS (fallback if Piper unavailable)
+      2. Kokoro TTS (if language is supported: en, ja, zh)
+      3. Bundled Piper model via piper_tts module (fallback if Kokoro fails or unsupported)
     """
+    normalized_lang = str(language).lower().strip()
+    kokoro_voice = "af_sarah"
+    kokoro_lang = "en-us"
+    is_kokoro_supported = False
+
+    if normalized_lang in ("en", "en-us", "us"):
+        kokoro_voice = "af_sarah"
+        kokoro_lang = "en-us"
+        is_kokoro_supported = True
+    elif normalized_lang in ("en-gb", "gb", "uk"):
+        kokoro_voice = "bf_emma"
+        kokoro_lang = "en-gb"
+        is_kokoro_supported = True
+    elif normalized_lang in ("ja", "jp", "japanese"):
+        kokoro_voice = "jf_alpha"
+        kokoro_lang = "ja"
+        is_kokoro_supported = True
+    elif normalized_lang in ("zh", "cn", "chinese"):
+        kokoro_voice = "zf_xiaobei"
+        kokoro_lang = "zh"
+        is_kokoro_supported = True
+
     try:
-        # ── 1. Custom or default Piper (primary) ────────────────────────────
+        # 1. Custom fine-tuned Piper model (if explicitly requested)
+        if piper_model_path and os.path.exists(piper_model_path):
+            try:
+                import piper_tts as _pt
+                if _pt.is_available(piper_model_path):
+                    wav_path = tempfile.mktemp(suffix=".wav", prefix="mimicai_base_")
+                    ok = _pt.synthesize_to_file(
+                        text=text[:500],
+                        output_path=wav_path,
+                        model_path=piper_model_path,
+                        noise_scale=0.667,
+                        length_scale=1.1,
+                        noise_w_scale=0.8,
+                    )
+                    if ok and os.path.exists(wav_path):
+                        logger.info(f"Custom Piper base TTS OK: {piper_model_path}")
+                        return wav_path
+            except Exception as exc:
+                logger.warning(f"Custom Piper TTS error: {exc}. Falling back to default engines.")
+
+        # 2. Kokoro TTS (if supported lang)
+        if is_kokoro_supported:
+            try:
+                kokoro = _get_kokoro()
+                if kokoro is not None:
+                    import soundfile as sf
+                    import librosa
+
+                    wav_path = tempfile.mktemp(suffix=".wav", prefix="mimicai_base_")
+                    samples, sample_rate = kokoro.create(text[:500], voice=kokoro_voice, speed=1.0, lang=kokoro_lang)
+
+                    if samples is not None and len(samples) > 0:
+                        # OpenVoice expects exactly 22050 Hz
+                        if sample_rate != 22050:
+                            samples = librosa.resample(samples, orig_sr=sample_rate, target_sr=22050)
+                            sample_rate = 22050
+
+                        sf.write(wav_path, samples, sample_rate)
+                        logger.info(f"Kokoro base TTS OK (voice: {kokoro_voice}, lang: {kokoro_lang})")
+                        return wav_path
+            except Exception as exc:
+                logger.warning(f"Kokoro base TTS failed: {exc}. Falling back to Piper.")
+
+        # 3. Default Bundled Piper TTS (fallback)
         try:
             import piper_tts as _pt
-
-            # Resolve which model to use
-            model = piper_model_path if (piper_model_path and os.path.exists(piper_model_path)) else None
-
-            if _pt.is_available(model):
+            if _pt.is_available():
                 wav_path = tempfile.mktemp(suffix=".wav", prefix="mimicai_base_")
                 ok = _pt.synthesize_to_file(
                     text=text[:500],
                     output_path=wav_path,
-                    model_path=model,         # None → auto-discover bundled model
-                    noise_scale=0.667,        # adds natural breathiness
-                    length_scale=1.1,         # slightly slower = more natural
-                    noise_w_scale=0.8,        # varied phoneme duration prosody
+                    model_path=None,
+                    noise_scale=0.667,
+                    length_scale=1.1,
+                    noise_w_scale=0.8,
                 )
                 if ok and os.path.exists(wav_path):
-                    logger.info(f"Piper base TTS ({'custom' if model else 'default'}) OK")
+                    logger.info("Piper default base TTS OK")
                     return wav_path
-                logger.warning("Piper synthesis returned empty — trying Kokoro fallback")
         except Exception as exc:
-            logger.warning(f"Piper TTS error: {exc} — trying Kokoro fallback")
+            logger.warning(f"Default Piper base TTS failed: {exc}")
 
-        # ── 2. Kokoro TTS (secondary fallback) ──────────────────────────────
-        kokoro = _get_kokoro()
-        if kokoro is not None:
-            import soundfile as sf
-            import librosa
+        # 4. Kokoro TTS (as a final backup for unsupported languages if Piper also failed)
+        if not is_kokoro_supported:
+            try:
+                kokoro = _get_kokoro()
+                if kokoro is not None:
+                    import soundfile as sf
+                    import librosa
 
-            wav_path = tempfile.mktemp(suffix=".wav", prefix="mimicai_base_")
-            samples, sample_rate = kokoro.create(text[:500], voice="af_sarah", speed=1.0, lang="en-us")
+                    wav_path = tempfile.mktemp(suffix=".wav", prefix="mimicai_base_")
+                    samples, sample_rate = kokoro.create(text[:500], voice="af_sarah", speed=1.0, lang="en-us")
 
-            # OpenVoice expects exactly 22050 Hz
-            if sample_rate != 22050:
-                samples = librosa.resample(samples, orig_sr=sample_rate, target_sr=22050)
-                sample_rate = 22050
+                    if samples is not None and len(samples) > 0:
+                        if sample_rate != 22050:
+                            samples = librosa.resample(samples, orig_sr=sample_rate, target_sr=22050)
+                            sample_rate = 22050
 
-            sf.write(wav_path, samples, sample_rate)
-            logger.info("Kokoro fallback TTS OK")
-            return wav_path
+                        sf.write(wav_path, samples, sample_rate)
+                        logger.info("Kokoro fallback base TTS OK")
+                        return wav_path
+            except Exception as exc:
+                logger.warning(f"Kokoro fallback failed: {exc}")
 
-        logger.error("All TTS engines unavailable")
+        logger.error("All base TTS engines unavailable")
         return None
 
     except Exception as exc:

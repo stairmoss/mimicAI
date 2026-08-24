@@ -440,12 +440,13 @@ def record_voice():
     name = request.form.get("name", "Untitled Voice").strip()
     language = request.form.get("language", "en").strip()
 
-    if not name:
-        return jsonify({"error": "Profile name is required"}), 400
+    valid_name, name_res = validate_profile_name(name)
+    if not valid_name:
+        return jsonify({"error": name_res}), 400
+    name = name_res
 
     audio_data = audio_file.read()
-    if len(audio_data) < 1000:
-        valid_sz, sz_err = validate_audio_file_size(len(audio_data))
+    valid_sz, sz_err = validate_audio_file_size(len(audio_data))
     if not valid_sz:
         return jsonify({"error": sz_err}), 400
 
@@ -515,19 +516,19 @@ def get_status():
     try:
         import piper_tts
         status["gemini"] = {
-        "available": bool(os.environ.get("GEMINI_API_KEY", "").strip()),
-        "loaded": bool(os.environ.get("GEMINI_API_KEY", "").strip())
-    }
-    status["piper"] = {
+            "available": bool(os.environ.get("GEMINI_API_KEY", "").strip()),
+            "loaded": bool(os.environ.get("GEMINI_API_KEY", "").strip())
+        }
+        status["piper"] = {
             "available": piper_tts.is_available(),
             "loaded": getattr(piper_tts, "_loaded_model_path", None) is not None
         }
     except Exception:
         status["gemini"] = {
-        "available": bool(os.environ.get("GEMINI_API_KEY", "").strip()),
-        "loaded": bool(os.environ.get("GEMINI_API_KEY", "").strip())
-    }
-    status["piper"] = {"available": False, "loaded": False}
+            "available": bool(os.environ.get("GEMINI_API_KEY", "").strip()),
+            "loaded": bool(os.environ.get("GEMINI_API_KEY", "").strip())
+        }
+        status["piper"] = {"available": False, "loaded": False}
         
     # 2. Kokoro
     try:

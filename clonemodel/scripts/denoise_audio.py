@@ -217,10 +217,6 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-# ---------------------------------------------------------------------------
-# Utilities
-# ---------------------------------------------------------------------------
-
 
 def count_lines(path: str) -> int:
     """Count newlines efficiently by reading binary chunks."""

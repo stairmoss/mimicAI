@@ -151,13 +151,25 @@ class VoiceManager:
         profile_dir = self.voices_dir / profile_id
         profile_dir.mkdir(parents=True, exist_ok=True)
 
-        audio_path = profile_dir / f"reference.{file_ext}"
+        audio_path = profile_dir / f"original_reference.{file_ext}"
         with open(audio_path, "wb") as f:
             f.write(audio_data)
 
         wav_path = self._convert_to_wav(audio_path, profile_dir)
         if wav_path is None:
             raise RuntimeError("Audio conversion failed. Make sure ffmpeg is installed.")
+
+        # Generate Whisper transcript during voice creation (training phase)
+        ref_text = ""
+        try:
+            logger.info(f"Transcribing new voice profile audio {wav_path} via Whisper...")
+            import whisper
+            model = whisper.load_model("base")
+            result = model.transcribe(str(wav_path))
+            ref_text = result.get("text", "").strip()
+            logger.info(f"Generated Whisper transcript for {profile_id}: '{ref_text}'")
+        except Exception as exc:
+            logger.error(f"Whisper transcription failed during voice creation: {exc}")
 
         meta = {
             "name": name,
@@ -166,6 +178,7 @@ class VoiceManager:
             "audio_file": wav_path.name,
             "original_file": audio_path.name,
             "clone_ready": True,
+            "transcript": ref_text,
             "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
         with open(profile_dir / "metadata.json", "w") as f:
@@ -270,25 +283,10 @@ class VoiceManager:
 
         # 1. Clone path
         if prefer_clone and voice_id:
+            logger.info("Running F5-TTS exclusive voice cloning...")
             result = self._generate_f5_tts(text, voice_id, progress_callback, lightweight=lightweight)
             if result is not None:
                 self.last_tts_engine = "f5_tts"
-                return result
-
-            if lightweight:
-                result = self._generate_MimicAI_lite(text, voice_id, language, progress_callback)
-                if result is not None:
-                    self.last_tts_engine = "mimicvoice_lite"
-                    return result
-            else:
-                result = self._generate_MimicAI_full(text, voice_id, language, progress_callback)
-                if result is not None:
-                    self.last_tts_engine = "mimicvoice"
-                    return result
-
-            result = self._generate_cloned(text, voice_id, language, progress_callback)
-            if result is not None:
-                self.last_tts_engine = "openvoice"
                 return result
 
             if not allow_fallback:
@@ -377,9 +375,25 @@ class VoiceManager:
                 logger.warning(f"No reference audio for voice {voice_id}")
                 return None
 
-            if not torch.cuda.is_available():
-                logger.warning("CUDA not available. Skipping F5-TTS on CPU to prevent stalls.")
-                return None
+            # Get transcript from metadata, or transcribe if missing
+            meta = self.get_voice_metadata(voice_id) or {}
+            ref_text = meta.get("transcript")
+            if ref_text is None:
+                try:
+                    logger.info(f"Transcribing reference audio {ref_path} via Whisper...")
+                    import whisper
+                    model = whisper.load_model("base")
+                    result = model.transcribe(str(ref_path))
+                    ref_text = result.get("text", "").strip()
+                    logger.info(f"Whisper transcription: '{ref_text}'")
+                    # Update metadata.json with the transcript
+                    meta["transcript"] = ref_text
+                    meta_path = self.voices_dir / voice_id / "metadata.json"
+                    with open(meta_path, "w") as f:
+                        json.dump(meta, f, indent=2)
+                except Exception as exc:
+                    logger.error(f"Failed to transcribe reference audio: {exc}")
+                    ref_text = ""
 
             f5_cli = self._find_executable("f5-tts_infer-cli")
             if not f5_cli:
@@ -395,7 +409,7 @@ class VoiceManager:
                     f5_cli,
                     "--model", os.environ.get("F5_TTS_MODEL", "F5TTS_v1_Base"),
                     "--ref_audio", ref_path,
-                    "--ref_text", "",
+                    "--ref_text", ref_text,
                     "--gen_text", text[:500],
                     "--output_dir", tmp_dir,
                     "--output_file", out_name,
@@ -405,16 +419,26 @@ class VoiceManager:
                         "16" if lightweight else "32",
                     ),
                 ]
+                if not torch.cuda.is_available():
+                    cmd.extend(["--device", "cpu"])
 
                 if progress_callback:
                     progress_callback("generate", 1, 3, "Generating with F5-TTS...")
+
+                # CPU performance optimization env vars
+                import multiprocessing
+                sub_env = os.environ.copy()
+                cores = str(max(1, multiprocessing.cpu_count()))
+                sub_env["OMP_NUM_THREADS"] = cores
+                sub_env["MKL_NUM_THREADS"] = cores
 
                 proc = subprocess.run(
                     cmd,
                     check=False,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
-                    timeout=int(os.environ.get("F5_TTS_TIMEOUT", "600")),
+                    env=sub_env,
+                    timeout=int(os.environ.get("F5_TTS_TIMEOUT", "1800")),
                 )
                 if proc.returncode != 0:
                     logger.warning(

@@ -188,7 +188,7 @@ def _resolve_model_path(name_or_path: str, local_files_only: bool = False) -> st
 class MimicVoice(PreTrainedModel):
     _supports_flex_attn = True
     _supports_flash_attn_2 = True
-    _supports_sdpa = True
+    _3supports_sdpa = True
     config_class = MimicVoiceConfig
 
     def __init__(self, config: MimicVoiceConfig, llm: Optional[PreTrainedModel] = None):
