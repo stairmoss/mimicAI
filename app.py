@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""MimicAI — Flask chatbot with neural TTS.
-
-A ChatGPT-styled web interface that integrates:
-- Chatbot powered by Hack Club API (qwen/qwen3-32b)
-- Voice recording and storage
-- Neural TTS via F5-TTS / MimicVoice voice cloning
-- Async TTS jobs with Server-Sent Events progress streaming
-- 600+ language support
-- Optimised for i3 / 4GB RAM
-"""
-
 import json
 import logging
 import os
@@ -20,34 +9,32 @@ import traceback
 import uuid
 
 import requests
-from flask import Flask, Response, jsonify, render_template, request, send_from_directory
+from flask import Flask, Response, jsonify, render_template, request
 from flask_cors import CORS
 
 from voice_manager import VoiceManager
 from clonemodel.profile_validator import validate_profile_name, validate_audio_file_size
 from gemini_helper import is_gemini_available, GEMINI_ENDPOINT, GEMINI_MODEL, GEMINI_API_KEY
+from clonemodel.memory_utils import free_unused_memory
 
-# Load local .env file if present
 env_path = os.path.join(os.path.dirname(__file__), ".env")
 if os.path.exists(env_path):
     with open(env_path) as f:
         for line in f:
             line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
+            if line and not line.startswith('#') and '=' in line:
+                k, v = line.split('=', 1)
                 os.environ[k.strip()] = v.strip()
-
-# ── Configuration ──────────────────────────────────────────────────────────────
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 GEMINI_API_URL = os.environ.get(
-    "GEMINI_API_URL",
+    'GEMINI_API_URL',
     "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 )
 HACKCLUB_API_URL = "https://ai.hackclub.com/proxy/v1/chat/completions"
 HACKCLUB_API_KEY = os.environ.get("HACKCLUB_API_KEY", "")
-CHAT_MODEL = os.environ.get("CHAT_MODEL", "qwen/qwen3-32b")
+CHAT_MODEL = os.environ.get("CHAT_MODEL", 'qwen/qwen3-32b')
 
 SYSTEM_PROMPT = (
     "You are MimicAI, a friendly and concise AI assistant. "
@@ -56,20 +43,17 @@ SYSTEM_PROMPT = (
     "Do NOT include any thinking or reasoning tags in your response."
 )
 
-# ── App Setup ──────────────────────────────────────────────────────────────────
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("mimicai")
 
 FLASK_DEBUG = os.environ.get("FLASK_DEBUG", "0") == "1" or os.environ.get("FLASK_ENV", "production") == "development"
+
 
 def _error_response(exc, message):
     logger.error(f"{message}: {exc}", exc_info=True)
     err_msg = str(exc) if FLASK_DEBUG else f"Internal server error: {message.lower()}"
     return jsonify({"error": err_msg}), 500
+
 
 FALLBACK_LANGUAGES = [
     {"id": "en", "name": "English"},
@@ -96,7 +80,6 @@ FALLBACK_LANGUAGES = [
 
 app = Flask(__name__)
 cors_origins = os.environ.get("CORS_ALLOWED_ORIGINS", "*")
-logger.info(f"CORS origins configured: {cors_origins}")
 if cors_origins != "*":
     cors_origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
 CORS(app, resources={r"/api/*": {"origins": cors_origins}})
@@ -104,48 +87,45 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
 voice_manager = VoiceManager()
 
-# ── Async TTS Job Store ────────────────────────────────────────────────────────
-
-_tts_jobs: dict[str, dict] = {}
-_tts_jobs_lock = threading.Lock()
+jobs = {}
+jobs_lock = threading.Lock()
 
 
 def _new_job(job_id: str):
-    with _tts_jobs_lock:
-        _tts_jobs[job_id] = {
+    with jobs_lock:
+        jobs[job_id] = {
             "status": "pending",
             "progress": [],
             "audio": None,
             "engine": None,
             "error": None,
             "queue": queue.Queue(),
-            "created_at": time.time(),
+            'created_at': time.time(),
         }
 
 
 def _update_job(job_id: str, **kwargs):
-    with _tts_jobs_lock:
-        job = _tts_jobs.get(job_id)
-        if job is None:
+    with jobs_lock:
+        job = jobs.get(job_id)
+        if not job:
             return
         for k, v in kwargs.items():
             job[k] = v
-        # Push an event so SSE listeners wake up
         try:
             job["queue"].put_nowait(kwargs)
         except queue.Full:
             pass
 
 
-def _get_job(job_id: str) -> dict | None:
-    with _tts_jobs_lock:
-        return _tts_jobs.get(job_id)
+def _get_job(job_id: str):
+    with jobs_lock:
+        return jobs.get(job_id)
 
 
-def _get_job_snapshot(job_id: str) -> dict | None:
-    with _tts_jobs_lock:
-        job = _tts_jobs.get(job_id)
-        if job is None:
+def _get_job_snapshot(job_id: str):
+    with jobs_lock:
+        job = jobs.get(job_id)
+        if not job:
             return None
         return {
             "status": job.get("status"),
@@ -156,54 +136,46 @@ def _get_job_snapshot(job_id: str) -> dict | None:
 
 
 def _cleanup_old_jobs():
-    """Remove jobs older than 5 minutes to prevent memory leaks."""
-    with _tts_jobs_lock:
+    with jobs_lock:
         now = time.time()
-        stale = [jid for jid, j in _tts_jobs.items()
-                 if j.get("created_at", now) < now - 300]
+        stale = [jid for jid, j in jobs.items() if j.get('created_at', now) < now - 300]
         for jid in stale:
-            del _tts_jobs[jid]
+            del jobs[jid]
 
-
-# ── Routes: Pages ─────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
 
-# ── Routes: Chat API ──────────────────────────────────────────────────────────
-
 @app.route("/api/chat", methods=["POST"])
 def chat():
-    """Proxy chat to Hack Club API with SSE streaming, filtering reasoning tokens."""
     data = request.get_json()
     if not data or not data.get("message"):
         return jsonify({"error": "No message provided"}), 400
 
-    user_message = data["message"].strip()
+    user_msg = data["message"].strip()
     history = data.get("history", [])
 
-    # De-duplicate trailing message
     if history:
         last = history[-1]
-        if last.get("role") == "user" and (last.get("content") or "").strip() == user_message:
+        if last.get("role") == "user" and (last.get("content") or "").strip() == user_msg:
             history = history[:-1]
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    for msg in history[-10:]:
-        role = msg.get("role", "user")
-        content = msg.get("content", "")
+    msgs = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for m in history[-10:]:
+        role = m.get("role", "user")
+        content = m.get("content", "")
         if role in ("user", "assistant") and content:
-            messages.append({"role": role, "content": content})
-    messages.append({"role": "user", "content": user_message})
+            msgs.append({"role": role, "content": content})
+    msgs.append({"role": "user", "content": user_msg})
 
-    def _error_chunk(msg: str):
-        chunk = json.dumps({"choices": [{"delta": {"content": msg}}]}, ensure_ascii=False)
-        yield f"data: {chunk}\n\n"
+    def _err_chunk(msg: str):
+        payload = json.dumps({"choices": [{"delta": {"content": msg}}]}, ensure_ascii=False)
+        yield f"data: {payload}\n\n"
         yield "data: [DONE]\n\n"
 
-    def stream_response():
+    def stream():
         try:
             target_url = GEMINI_API_URL if os.environ.get("GEMINI_API_KEY") else HACKCLUB_API_URL
             api_key = os.environ.get("GEMINI_API_KEY") or HACKCLUB_API_KEY
@@ -216,7 +188,7 @@ def chat():
                 },
                 json={
                     "model": model_name,
-                    "messages": messages,
+                    "messages": msgs,
                     "stream": True,
                     "max_tokens": 1024,
                     "temperature": 0.7,
@@ -226,7 +198,7 @@ def chat():
             )
 
             if resp.status_code != 200:
-                yield from _error_chunk(f"API error {resp.status_code}. Please try again.")
+                yield from _err_chunk(f"API error {resp.status_code}. Please try again.")
                 return
 
             for line in resp.iter_lines(decode_unicode=True):
@@ -242,7 +214,7 @@ def chat():
                     content = delta.get("content")
                     if not content:
                         continue
-                    # Fix occasional mojibake from the API
+                    # upstream occasionally sends double-encoded utf-8 bytes
                     try:
                         content = content.encode("latin-1").decode("utf-8")
                     except (UnicodeDecodeError, UnicodeEncodeError):
@@ -253,97 +225,92 @@ def chat():
                     continue
 
         except requests.exceptions.Timeout:
-            yield from _error_chunk("The chat service timed out. Try again in a moment.")
+            yield from _err_chunk("The chat service timed out. Try again in a moment.")
         except requests.exceptions.ConnectionError:
-            yield from _error_chunk("Cannot reach the chat service. Check your connection.")
+            yield from _err_chunk("Cannot reach the chat service. Check your connection.")
         except Exception:
             logger.error(f"Chat stream error:\n{traceback.format_exc()}")
-            yield from _error_chunk("The chat service hit an error. Please try again.")
+            yield from _err_chunk("The chat service hit an error. Please try again.")
 
     return Response(
-        stream_response(),
+        stream(),
         mimetype="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
     )
 
 
-# ── Routes: TTS ───────────────────────────────────────────────────────────────
-
 @app.route("/api/tts", methods=["POST"])
 def text_to_speech():
-    """TTS endpoint. Uses real voice cloning engines only."""
     data = request.get_json()
     if not data or not data.get("text"):
         return jsonify({"error": "No text provided"}), 400
 
     text = data["text"].strip()[:500]
     voice_id = data.get("voice_id") or None
-    language = data.get("language", "en")
+    lang = data.get("language", "en")
     prefer_clone = bool(data.get("prefer_clone"))
     lightweight = bool(data.get("lightweight"))
     allow_fallback = not bool(data.get("strict_clone"))
-    voice_design = data.get("voice_design") or None
+    design = data.get("voice_design") or None
 
     try:
-        audio_bytes = voice_manager.generate_tts(
+        audio = voice_manager.generate_tts(
             text=text,
             voice_id=voice_id,
-            language=language,
+            language=lang,
             prefer_clone=prefer_clone,
             lightweight=lightweight,
             allow_fallback=allow_fallback if not prefer_clone else True,
-            voice_design=voice_design,
+            voice_design=design,
         )
     except Exception as exc:
         return _error_response(exc, "TTS generation failed")
 
-    if not audio_bytes:
+    if not audio:
         return jsonify({"error": "TTS generation failed"}), 500
 
-    content_type = _detect_mimetype(audio_bytes)
     return Response(
-        audio_bytes,
-        mimetype=content_type,
+        audio,
+        mimetype=_detect_mimetype(audio),
         headers={"X-TTS-Engine": voice_manager.last_tts_engine},
     )
 
 
 @app.route("/api/tts/async", methods=["POST"])
 def tts_async_start():
-    """Start an async TTS generation job. Returns a job_id immediately."""
     data = request.get_json()
     if not data or not data.get("text"):
         return jsonify({"error": "No text provided"}), 400
 
     text = data["text"].strip()[:500]
     voice_id = data.get("voice_id") or None
-    language = data.get("language", "en")
+    lang = data.get("language", "en")
     prefer_clone = bool(data.get("prefer_clone"))
     lightweight = bool(data.get("lightweight"))
     allow_fallback = not bool(data.get("strict_clone"))
-    voice_design = data.get("voice_design") or None
+    design = data.get("voice_design") or None
 
     job_id = uuid.uuid4().hex[:16]
     _new_job(job_id)
 
-    def _worker():
+    def worker():
         def progress(phase, step, total, msg):
             _update_job(job_id, status="running", last_progress={"phase": phase, "step": step, "total": total, "msg": msg})
 
         try:
             _update_job(job_id, status="running")
-            audio_bytes = voice_manager.generate_tts(
+            audio = voice_manager.generate_tts(
                 text=text,
                 voice_id=voice_id,
-                language=language,
+                language=lang,
                 prefer_clone=prefer_clone,
                 lightweight=lightweight,
                 allow_fallback=allow_fallback,
                 progress_callback=progress,
-                voice_design=voice_design,
+                voice_design=design,
             )
-            if audio_bytes:
-                _update_job(job_id, status="done", audio=audio_bytes, engine=voice_manager.last_tts_engine)
+            if audio:
+                _update_job(job_id, status="done", audio=audio, engine=voice_manager.last_tts_engine)
             else:
                 _update_job(job_id, status="error", error="TTS generation failed")
         except Exception as exc:
@@ -351,9 +318,8 @@ def tts_async_start():
             err_msg = str(exc) if FLASK_DEBUG else "Internal server error during synthesis"
             _update_job(job_id, status="error", error=err_msg)
 
-    from clonemodel.memory_utils import free_unused_memory
     free_unused_memory()
-    t = threading.Thread(target=_worker, daemon=True)
+    t = threading.Thread(target=worker, daemon=True)
     t.start()
 
     _cleanup_old_jobs()
@@ -362,19 +328,17 @@ def tts_async_start():
 
 @app.route("/api/tts/async/<job_id>/status")
 def tts_async_status(job_id):
-    """SSE stream of job progress events. Closes when done/error."""
     def event_stream():
         start = time.time()
         while True:
             job = _get_job_snapshot(job_id)
             if job is None:
-                data = json.dumps({"status": "not_found"})
-                yield f"data: {data}\n\n"
+                yield f"data: {json.dumps({'status': 'not_found'})}\n\n"
                 return
 
             status = job.get("status", "pending")
-            progress = job.get("last_progress", {})
-            payload = {"status": status, "progress": progress, "timestamp": time.time()}
+            prog = job.get("last_progress", {})
+            payload = {"status": status, "progress": prog, "timestamp": time.time()}
 
             if status == "done":
                 payload["engine"] = job.get("engine", "unknown")
@@ -387,7 +351,6 @@ def tts_async_status(job_id):
             else:
                 yield f"data: {json.dumps(payload)}\n\n"
 
-            # Timeout after 3 minutes
             if time.time() - start > 180:
                 yield f"data: {json.dumps({'status': 'timeout'})}\n\n"
                 return
@@ -403,28 +366,24 @@ def tts_async_status(job_id):
 
 @app.route("/api/tts/async/<job_id>/audio")
 def tts_async_audio(job_id):
-    """Retrieve completed audio for a finished async job."""
-    with _tts_jobs_lock:
-        job = _tts_jobs.get(job_id)
+    with jobs_lock:
+        job = jobs.get(job_id)
         if not job:
             return jsonify({"error": "Job not found"}), 404
         if job.get("status") != "done":
             return jsonify({"error": "Job not ready", "status": job.get("status")}), 202
-        audio_bytes = job.get("audio")
+        audio = job.get("audio")
         engine = job.get("engine", "unknown")
-        
-    if not audio_bytes:
+
+    if not audio:
         return jsonify({"error": "No audio data"}), 500
-        
-    content_type = _detect_mimetype(audio_bytes)
+
     return Response(
-        audio_bytes,
-        mimetype=content_type,
+        audio,
+        mimetype=_detect_mimetype(audio),
         headers={"X-TTS-Engine": engine},
     )
 
-
-# ── Routes: Voice Profiles ─────────────────────────────────────────────────────
 
 @app.route("/api/voices", methods=["GET"])
 def list_voices():
@@ -438,25 +397,23 @@ def record_voice():
 
     audio_file = request.files["audio"]
     name = request.form.get("name", "Untitled Voice").strip()
-    language = request.form.get("language", "en").strip()
+    lang = request.form.get("language", "en").strip()
 
     valid_name, name_res = validate_profile_name(name)
     if not valid_name:
         return jsonify({"error": name_res}), 400
     name = name_res
 
-    audio_data = audio_file.read()
-    valid_sz, sz_err = validate_audio_file_size(len(audio_data))
+    data = audio_file.read()
+    valid_sz, sz_err = validate_audio_file_size(len(data))
     if not valid_sz:
         return jsonify({"error": sz_err}), 400
 
-    filename = audio_file.filename or "recording.webm"
-    ext = filename.rsplit(".", 1)[-1] if "." in filename else "webm"
+    fn = audio_file.filename or "recording.webm"
+    ext = fn.rsplit(".", 1)[-1] if "." in fn else "webm"
 
     try:
-        profile = voice_manager.create_voice(
-            audio_data=audio_data, name=name, language=language, file_ext=ext,
-        )
+        profile = voice_manager.create_voice(audio_data=data, name=name, language=lang, file_ext=ext)
         return jsonify({"success": True, "voice": profile})
     except Exception as exc:
         return _error_response(exc, "Voice creation failed")
@@ -476,43 +433,39 @@ def preview_voice(voice_id):
         return jsonify({"error": "Voice not found"}), 404
 
     data = request.get_json(silent=True) or {}
-    language = data.get("language") or profile.get("language", "en")
+    lang = data.get("language") or profile.get("language", "en")
     text = (data.get("text") or f"Hello, I am {profile.get('name', 'your assistant')}.").strip()[:180]
 
     try:
-        audio_bytes = voice_manager.generate_tts(
+        audio = voice_manager.generate_tts(
             text=text,
             voice_id=voice_id,
-            language=language,
+            language=lang,
             prefer_clone=True,
             allow_fallback=True,
         )
     except Exception as exc:
         return _error_response(exc, "Voice preview failed")
 
-    if not audio_bytes:
+    if not audio:
         return jsonify({"error": "Voice preview failed"}), 500
 
-    content_type = _detect_mimetype(audio_bytes)
-    return Response(audio_bytes, mimetype=content_type,
-                    headers={"X-TTS-Engine": voice_manager.last_tts_engine})
+    return Response(
+        audio,
+        mimetype=_detect_mimetype(audio),
+        headers={"X-TTS-Engine": voice_manager.last_tts_engine},
+    )
 
-
-# ── Routes: Languages ──────────────────────────────────────────────────────────
 
 @app.route("/api/languages", methods=["GET"])
 def list_languages():
     return jsonify({"languages": FALLBACK_LANGUAGES, "total": len(FALLBACK_LANGUAGES)})
 
 
-# ── Routes: Engine Status ──────────────────────────────────────────────────────
-
 @app.route("/api/status", methods=["GET"])
 def get_status():
-    """Retrieve engine status and availability."""
     status = {}
-    
-    # 1. Piper
+
     try:
         import piper_tts
         status["gemini"] = {
@@ -529,32 +482,28 @@ def get_status():
             "loaded": bool(os.environ.get("GEMINI_API_KEY", "").strip())
         }
         status["piper"] = {"available": False, "loaded": False}
-        
-    # 2. Kokoro
+
     try:
         import kokoro_onnx  # noqa: F401
-        model_path = "/mnt/18A660FBA660DB30/voiceclone_AI/mimicAI/kokoro_models/kokoro-v1.0.int8.onnx"
-        voices_path = "/mnt/18A660FBA660DB30/voiceclone_AI/mimicAI/kokoro_models/voices-v1.0.bin"
-        available = os.path.exists(model_path) and os.path.exists(voices_path)
+        m_path = "/mnt/18A660FBA660DB30/voiceclone_AI/mimicAI/kokoro_models/kokoro-v1.0.int8.onnx"
+        v_path = "/mnt/18A660FBA660DB30/voiceclone_AI/mimicAI/kokoro_models/voices-v1.0.bin"
         from clone_engine import _kokoro_model
         status["kokoro"] = {
-            "available": available,
+            "available": os.path.exists(m_path) and os.path.exists(v_path),
             "loaded": _kokoro_model is not None
         }
     except Exception:
         status["kokoro"] = {"available": False, "loaded": False}
 
-    # 3. OpenVoice
     try:
-        from clone_engine import is_available as ce_available
+        from clone_engine import is_available as ce_avail
         status["openvoice"] = {
-            "available": ce_available(),
+            "available": ce_avail(),
             "loaded": True
         }
     except Exception:
         status["openvoice"] = {"available": False, "loaded": False}
 
-    # 4. MimicVoice Full
     try:
         from clonemodel import MimicVoice  # noqa: F401
         from voice_manager import _MimicAI_full_model
@@ -565,7 +514,6 @@ def get_status():
     except Exception:
         status["mimicvoice"] = {"available": False, "loaded": False}
 
-    # 5. MimicVoice Lite
     try:
         from clonemodel.lite.mimicvoice_lite import MimicVoiceLite  # noqa: F401
         from voice_manager import _MimicAI_model
@@ -579,8 +527,6 @@ def get_status():
     return jsonify(status)
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
-
 def _detect_mimetype(data: bytes) -> str:
     if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WAVE":
         return "audio/wav"
@@ -593,39 +539,16 @@ def _detect_mimetype(data: bytes) -> str:
     return "audio/mpeg"
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5001"))
-    print("\n" + "=" * 50)
-    print("  M  MimicAI — Voice Chatbot")
-    print("=" * 50)
-    print(f"  Server  : http://localhost:{port}")
-    print(f"  Voices  : {voice_manager.voices_dir}")
-    print(f"  Shards  : {voice_manager.voices_dir.parent / '..'}")
-    print("=" * 50 + "\n")
-
+    print(f"\nMimicAI starting on http://localhost:{port}\n")
     host = os.environ.get("HOST", "0.0.0.0")
     try:
         app.run(host=host, port=port, debug=False, threaded=True)
     except OSError as exc:
         if "Address already in use" in str(exc):
             alt = port + 1
-            print(f"Port {port} busy, trying {alt}…")
+            print(f"Port {port} busy, trying {alt}...")
             app.run(host=host, port=alt, debug=False, threaded=True)
         else:
             raise
-
-# commit update: updated frontend app js to display gemini api status
-
-# commit update: added stop speech button in main header bar
-
-# commit update: fixed bug where audio player remained active after song ends
-
-# commit update: added notification toast when audio playback finishes
-
-# commit update: added preview button for newly designed zero shot voices
-
-# commit update: updated security verification script for voice input checks
-
-# commit update: updated requirements file with gemini api and sound file libraries

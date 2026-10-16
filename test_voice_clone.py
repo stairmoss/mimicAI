@@ -1,34 +1,24 @@
 #!/usr/bin/env python3
-"""Voice clone verification test script."""
 from voice_manager import VoiceManager
+from clonemodel.preset_manager import list_presets
+from clonemodel.text_cleaner import clean_tts_text
 
-def test_voice_manager():
+
+def run_checks():
     vm = VoiceManager()
     voices = vm.list_voices()
-    print("Current Voice Profiles Count:", len(voices))
+    print("Voice profiles count:", len(voices))
 
-if __name__ == "__main__":
-    test_voice_manager()
+    presets = list_presets()
+    print("Presets available:", len(presets))
 
-def test_speed_control():
-    from voice_manager import VoiceManager
-    vm = VoiceManager()
-    print("Voice Manager speed control initialized")
-
-if __name__ == "__main__":
-    test_speed_control()
-
-def test_preset_loading():
-    from clonemodel.preset_manager import list_presets
-    print("Presets available:", len(list_presets()))
-
-def test_zero_shot_design():
-    from voice_manager import VoiceManager
-    vm = VoiceManager()
+    # zero-shot voice design check
     res = vm._generate_designed_voice("Hello test", {"gender": "female", "accent": "us"})
-    print("Zero shot test result:", res is not None or "Fallback active")
+    print("Zero shot test:", "OK" if res is not None else "fallback active")
 
-def test_expressiveness_tags():
-    from clonemodel.text_cleaner import clean_tts_text
-    res = clean_tts_text("Hello [laughter] world")
-    print("Cleaned tag result:", res)
+    cleaned = clean_tts_text("Hello [laughter] world")
+    print("Cleaned text:", cleaned)
+
+
+if __name__ == "__main__":
+    run_checks()

@@ -1,4 +1,3 @@
-"""Google Gemini API Helper for MimicAI."""
 import os
 import logging
 from typing import Dict, List, Optional
@@ -12,8 +11,10 @@ GEMINI_ENDPOINT = os.environ.get(
     "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 )
 
+
 def is_gemini_available() -> bool:
     return bool(os.environ.get("GEMINI_API_KEY", "").strip())
+
 
 def get_gemini_config() -> Dict[str, str]:
     return {
@@ -23,9 +24,9 @@ def get_gemini_config() -> Dict[str, str]:
 
 
 def build_gemini_chat_payload(messages: List[Dict[str, str]], model: Optional[str] = None) -> Dict:
-    selected_model = model or os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+    selected = model or os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
     return {
-        "model": selected_model,
+        "model": selected,
         "messages": messages,
         "stream": True,
         "max_tokens": 1024,
