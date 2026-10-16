@@ -4,6 +4,16 @@ import time
 import gradio as gr
 import numpy as np
 
+try:
+    import spaces
+except ImportError:
+    class _MockSpaces:
+        def GPU(self, fn=None, duration=None):
+            if fn is None:
+                return lambda f: f
+            return fn
+    spaces = _MockSpaces()
+
 from voice_manager import VoiceManager
 from clone_engine import clone_voice
 import piper_tts
@@ -11,6 +21,7 @@ import piper_tts
 vm = VoiceManager()
 
 
+@spaces.GPU
 def clone_speech(ref_audio, text):
     if not ref_audio:
         return None, "Please record or upload a reference audio sample."
@@ -39,6 +50,7 @@ def clone_speech(ref_audio, text):
         return None, f"Error: {exc}"
 
 
+@spaces.GPU
 def design_speech(text, gender, accent, speed, pitch):
     if not text or not text.strip():
         return None, "Please enter some text."
