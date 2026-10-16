@@ -18,3 +18,4 @@ piper-tts>=1.4.0
 onnxruntime>=1.14.0
 openvoice-cli
 f5-tts
+gradio>=6.0.0
