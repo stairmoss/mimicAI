@@ -1,0 +1,42 @@
+<svg width="68" height="68" viewBox="0 0 68 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wave1" x1="12" y1="34" x2="56" y2="34" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8ab4f8"/>
+      <stop offset="100%" stop-color="#80d8ff"/>
+    </linearGradient>
+    <linearGradient id="wave2" x1="12" y1="34" x2="56" y2="34" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#aecbfa"/>
+      <stop offset="100%" stop-color="#8ab4f8"/>
+    </linearGradient>
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(138, 180, 248, 0.35)"/>
+      <stop offset="100%" stop-color="rgba(138, 180, 248, 0)"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Container -->
+  <rect width="68" height="68" rx="19" fill="#292a2d" stroke="#3c4043" stroke-width="1.6"/>
+  <circle cx="34" cy="34" r="28" fill="url(#centerGlow)"/>
+
+  <!-- Voice Frequency Equalizer Bars -->
+  <line x1="17.5" y1="26" x2="17.5" y2="42" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" opacity="0.35"/>
+  <line x1="23" y1="19" x2="23" y2="49" stroke="#8ab4f8" stroke-width="2.5" stroke-linecap="round" opacity="0.45"/>
+  <line x1="45" y1="19" x2="45" y2="49" stroke="#80d8ff" stroke-width="2.5" stroke-linecap="round" opacity="0.45"/>
+  <line x1="50.5" y1="26" x2="50.5" y2="42" stroke="#80d8ff" stroke-width="2" stroke-linecap="round" opacity="0.35"/>
+
+  <!-- Twin Cloned Voice Waves (DNA Audio Helix) -->
+  <path d="M12 34 C17 16, 29 16, 34 34 C39 52, 51 52, 56 34" stroke="url(#wave1)" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M12 34 C17 52, 29 52, 34 34 C39 16, 51 16, 56 34" stroke="url(#wave2)" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- AI Neural Network Nodes -->
+  <circle cx="23" cy="17" r="3.2" fill="#8ab4f8"/>
+  <circle cx="23" cy="51" r="3.2" fill="#aecbfa"/>
+  <circle cx="45" cy="17" r="3.2" fill="#80d8ff"/>
+  <circle cx="45" cy="51" r="3.2" fill="#8ab4f8"/>
+  <circle cx="12" cy="34" r="2.2" fill="#8ab4f8"/>
+  <circle cx="56" cy="34" r="2.2" fill="#80d8ff"/>
+
+  <!-- AI Neural Nexus Core -->
+  <path d="M34 27 Q34 34 27 34 Q34 34 34 41 Q34 34 41 34 Q34 34 34 27 Z" fill="#ffffff"/>
+  <circle cx="34" cy="34" r="1.6" fill="#8ab4f8"/>
+</svg>

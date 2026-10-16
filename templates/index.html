@@ -6,16 +6,39 @@
   <meta name="description" content="MimicAI — AI chatbot with neural text-to-speech in 20+ languages. Record a voice sample and hear AI replies spoken aloud.">
   <title>MimicAI — Voice AI Chatbot</title>
   <link rel="stylesheet" href="/static/css/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>M</text></svg>">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23292a2d' stroke='%233c4043' stroke-width='1.2'/%3E%3Cline x1='11' y1='10' x2='11' y2='22' stroke='%238ab4f8' stroke-width='1.5' stroke-linecap='round' opacity='0.45'/%3E%3Cline x1='21' y1='10' x2='21' y2='22' stroke='%2380d8ff' stroke-width='1.5' stroke-linecap='round' opacity='0.45'/%3E%3Cpath d='M6 16 C8.5 7.5, 13.5 7.5, 16 16 C18.5 24.5, 23.5 24.5, 26 16' stroke='%238ab4f8' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3Cpath d='M6 16 C8.5 24.5, 13.5 24.5, 16 16 C18.5 7.5, 23.5 7.5, 26 16' stroke='%2380d8ff' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='11' cy='9' r='1.5' fill='%238ab4f8'/%3E%3Ccircle cx='11' cy='23' r='1.5' fill='%238ab4f8'/%3E%3Ccircle cx='21' cy='9' r='1.5' fill='%2380d8ff'/%3E%3Ccircle cx='21' cy='23' r='1.5' fill='%2380d8ff'/%3E%3Cpath d='M16 13 Q16 16 13 16 Q16 16 16 19 Q16 16 19 16 Q16 16 16 13 Z' fill='%23ffffff'/%3E%3C/svg%3E">
 </head>
 <body>
   <div class="app">
 
-    <!-- ───── Sidebar ───── -->
+    <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-logo">
-          <span class="logo-icon">M</span>
+          <div class="logo-mark">
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="sbWave1" x1="6" y1="16" x2="26" y2="16" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#8ab4f8"/>
+                  <stop offset="100%" stop-color="#80d8ff"/>
+                </linearGradient>
+                <linearGradient id="sbWave2" x1="6" y1="16" x2="26" y2="16" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#aecbfa"/>
+                  <stop offset="100%" stop-color="#8ab4f8"/>
+                </linearGradient>
+              </defs>
+              <rect width="32" height="32" rx="9" fill="#303134" stroke="#3c4043" stroke-width="1.2"/>
+              <line x1="11" y1="10" x2="11" y2="22" stroke="#8ab4f8" stroke-width="1.5" stroke-linecap="round" opacity="0.45"/>
+              <line x1="21" y1="10" x2="21" y2="22" stroke="#80d8ff" stroke-width="1.5" stroke-linecap="round" opacity="0.45"/>
+              <path d="M6 16 C8.5 7.5, 13.5 7.5, 16 16 C18.5 24.5, 23.5 24.5, 26 16" stroke="url(#sbWave1)" stroke-width="2" stroke-linecap="round"/>
+              <path d="M6 16 C8.5 24.5, 13.5 24.5, 16 16 C18.5 7.5, 23.5 7.5, 26 16" stroke="url(#sbWave2)" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="11" cy="9" r="1.5" fill="#8ab4f8"/>
+              <circle cx="11" cy="23" r="1.5" fill="#aecbfa"/>
+              <circle cx="21" cy="9" r="1.5" fill="#80d8ff"/>
+              <circle cx="21" cy="23" r="1.5" fill="#8ab4f8"/>
+              <path d="M16 13 Q16 16 13 16 Q16 16 16 19 Q16 16 19 16 Q16 16 16 13 Z" fill="#ffffff"/>
+            </svg>
+          </div>
           <span class="logo-text" title="Neural Voice Cloning & AI Chat">MimicAI</span>
         </div>
         <button class="new-chat-btn" id="new-chat-btn" title="Start new chat">
@@ -28,7 +51,7 @@
           <button class="voice-tab active" id="tab-profiles">Profiles</button>
           <button class="voice-tab" id="tab-design">Design Voice</button>
         </div>
-        
+
         <div id="panel-profiles" class="voice-panel">
           <ul class="voice-list" id="voice-list">
             <li class="voice-empty">
@@ -80,21 +103,9 @@
         </div>
       </div>
 
-      <div class="sidebar-footer">
-        <div class="footer-badge">MimicAI Engine Status</div>
-        <div class="status-grid" id="status-grid">
-          <div class="status-badge" id="status-gemini" title="Gemini 2.0 AI Engine">Gemini <span class="dot"></span></div>
-          <div class="status-badge" id="status-piper" title="Piper TTS">Piper <span class="dot"></span></div>
-          <div class="status-badge" id="status-kokoro" title="Kokoro TTS Fallback">Kokoro <span class="dot"></span></div>
-          <div class="status-badge" id="status-openvoice" title="OpenVoice Clone Engine">OpenVoice <span class="dot"></span></div>
-          <div class="status-badge" id="status-MimicAI" title="MimicVoice Full Clone">MimicVoice <span class="dot"></span></div>
-          <div class="status-badge" id="status-MimicAI-lite" title="MimicVoice Lite Clone">MimicLite <span class="dot"></span></div>
-        </div>
-        <div class="footer-info" style="margin-top: 6px;">F5-TTS · MimicVoice · Real Voice Clone</div>
-      </div>
     </aside>
 
-    <!-- ───── Main Chat Area ───── -->
+    <!-- Main Chat Area -->
     <main class="main">
 
       <!-- Header -->
@@ -140,14 +151,47 @@
           <!-- Welcome Screen -->
           <div class="welcome" id="welcome-screen">
             <div class="welcome-glow"></div>
-            <div class="welcome-icon">M</div>
+            <div class="welcome-logo">
+              <svg width="72" height="72" viewBox="0 0 68 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="welWave1" x1="12" y1="34" x2="56" y2="34" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#8ab4f8"/>
+                    <stop offset="100%" stop-color="#80d8ff"/>
+                  </linearGradient>
+                  <linearGradient id="welWave2" x1="12" y1="34" x2="56" y2="34" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#aecbfa"/>
+                    <stop offset="100%" stop-color="#8ab4f8"/>
+                  </linearGradient>
+                  <radialGradient id="welGlow" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="rgba(138, 180, 248, 0.35)"/>
+                    <stop offset="100%" stop-color="rgba(138, 180, 248, 0)"/>
+                  </radialGradient>
+                </defs>
+                <rect width="68" height="68" rx="19" fill="#292a2d" stroke="#3c4043" stroke-width="1.6"/>
+                <circle cx="34" cy="34" r="28" fill="url(#welGlow)"/>
+                <line x1="17.5" y1="26" x2="17.5" y2="42" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" opacity="0.35"/>
+                <line x1="23" y1="19" x2="23" y2="49" stroke="#8ab4f8" stroke-width="2.5" stroke-linecap="round" opacity="0.45"/>
+                <line x1="45" y1="19" x2="45" y2="49" stroke="#80d8ff" stroke-width="2.5" stroke-linecap="round" opacity="0.45"/>
+                <line x1="50.5" y1="26" x2="50.5" y2="42" stroke="#80d8ff" stroke-width="2" stroke-linecap="round" opacity="0.35"/>
+                <path d="M12 34 C17 16, 29 16, 34 34 C39 52, 51 52, 56 34" stroke="url(#welWave1)" stroke-width="3.5" stroke-linecap="round"/>
+                <path d="M12 34 C17 52, 29 52, 34 34 C39 16, 51 16, 56 34" stroke="url(#welWave2)" stroke-width="3.5" stroke-linecap="round"/>
+                <circle cx="23" cy="17" r="3.2" fill="#8ab4f8"/>
+                <circle cx="23" cy="51" r="3.2" fill="#aecbfa"/>
+                <circle cx="45" cy="17" r="3.2" fill="#80d8ff"/>
+                <circle cx="45" cy="51" r="3.2" fill="#8ab4f8"/>
+                <circle cx="12" cy="34" r="2.2" fill="#8ab4f8"/>
+                <circle cx="56" cy="34" r="2.2" fill="#80d8ff"/>
+                <path d="M34 27 Q34 34 27 34 Q34 34 34 41 Q34 34 41 34 Q34 34 34 27 Z" fill="#ffffff"/>
+                <circle cx="34" cy="34" r="1.6" fill="#8ab4f8"/>
+              </svg>
+            </div>
             <h1>MimicAI</h1>
             <p>Chat with AI and hear responses spoken aloud. Record a voice sample in the sidebar, then start chatting.</p>
             <div class="welcome-pills">
-              <div class="welcome-pill" data-prompt="Tell me a joke"> Tell me a joke</div>
-              <div class="welcome-pill" data-prompt="Explain quantum physics simply"> Explain quantum physics</div>
-              <div class="welcome-pill" data-prompt="Write a short poem about the ocean"> Write a poem</div>
-              <div class="welcome-pill" data-prompt="What can you do?"> What can you do?</div>
+              <div class="welcome-pill" data-prompt="Tell me a joke">Tell me a joke</div>
+              <div class="welcome-pill" data-prompt="Explain quantum physics simply">Explain quantum physics</div>
+              <div class="welcome-pill" data-prompt="Write a short poem about the ocean">Write a poem</div>
+              <div class="welcome-pill" data-prompt="What can you do?">What can you do?</div>
             </div>
           </div>
 
@@ -178,7 +222,7 @@
     </main>
   </div>
 
-  <!-- ───── Recording Modal ───── -->
+  <!-- Recording Modal -->
   <div class="modal-overlay" id="record-modal">
     <div class="modal">
       <div class="modal-header">
@@ -249,18 +293,32 @@
       </div>
     </div>
   </div>
-  
-  <!-- ───── Training Modal ───── -->
+
+  <!-- Training Modal -->
   <div class="modal-overlay" id="training-modal">
     <div class="modal" style="text-align: center; max-width: 400px; padding: 36px 28px;">
       <div style="margin-bottom: 24px;">
-        <div class="welcome-icon" style="margin: 0 auto 16px; width: 64px; height: 64px; border-radius: 20px; font-size: 28px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--accent), #b06ef9); color: white; box-shadow: 0 0 20px var(--accent-glow);">⚡</div>
-        <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px; background: linear-gradient(135deg, var(--text), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Training Voice Model</h2>
+        <div class="welcome-logo" style="margin: 0 auto 16px;">
+          <svg width="56" height="56" viewBox="0 0 68 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="68" height="68" rx="19" fill="#292a2d" stroke="#3c4043" stroke-width="1.6"/>
+            <circle cx="34" cy="34" r="28" fill="rgba(138, 180, 248, 0.25)"/>
+            <line x1="23" y1="19" x2="23" y2="49" stroke="#8ab4f8" stroke-width="2.5" stroke-linecap="round" opacity="0.45"/>
+            <line x1="45" y1="19" x2="45" y2="49" stroke="#80d8ff" stroke-width="2.5" stroke-linecap="round" opacity="0.45"/>
+            <path d="M12 34 C17 16, 29 16, 34 34 C39 52, 51 52, 56 34" stroke="#8ab4f8" stroke-width="3.5" stroke-linecap="round"/>
+            <path d="M12 34 C17 52, 29 52, 34 34 C39 16, 51 16, 56 34" stroke="#80d8ff" stroke-width="3.5" stroke-linecap="round"/>
+            <circle cx="23" cy="17" r="3.2" fill="#8ab4f8"/>
+            <circle cx="23" cy="51" r="3.2" fill="#aecbfa"/>
+            <circle cx="45" cy="17" r="3.2" fill="#80d8ff"/>
+            <circle cx="45" cy="51" r="3.2" fill="#8ab4f8"/>
+            <path d="M34 27 Q34 34 27 34 Q34 34 34 41 Q34 34 41 34 Q34 34 34 27 Z" fill="#ffffff"/>
+          </svg>
+        </div>
+        <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px; color: var(--text);">Training Voice Model</h2>
         <p style="font-size: 13px; color: var(--text2); line-height: 1.6;">Preparing neural speaker embeddings and transcribing speech patterns for high-fidelity F5-TTS cloning.</p>
       </div>
 
       <div style="position: relative; height: 6px; background: var(--bg4); border-radius: 3px; overflow: hidden; margin-bottom: 24px;">
-        <div id="training-progress-bar" style="position: absolute; left: 0; top: 0; height: 100%; width: 10%; background: linear-gradient(90deg, var(--accent), #b06ef9); border-radius: 3px; transition: width 0.4s ease;"></div>
+        <div id="training-progress-bar" style="position: absolute; left: 0; top: 0; height: 100%; width: 10%; background: var(--accent); border-radius: 3px; transition: width 0.4s ease;"></div>
       </div>
 
       <div style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: var(--accent);">
@@ -270,7 +328,7 @@
     </div>
   </div>
 
-  <!-- ───── Toast Container ───── -->
+  <!-- Toast Container -->
   <div class="toast-container" id="toast-container"></div>
 
   <script src="/static/js/app.js"></script>

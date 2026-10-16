@@ -1,62 +1,70 @@
-# MimicAI 
+# <p align="center"><img src="static/logo.svg" width="80" alt="MimicAI Logo"/><br><b>MimicAI</b></p>
 
-MimicAI is a production-hardened, state-of-the-art zero-shot text-to-speech (TTS) and voice cloning system. It features a modern, responsive web dashboard with advanced styling controls, real-time diagnostics, thread-safe asynchronous task runners, and secure API endpoints.
+<p align="center">
+  <b>Simple, fast zero-shot voice cloning and AI voice chatbot.</b><br>
+  Built with Piper TTS, Kokoro, F5-TTS, and Google Gemini , Hackclub AI
+</p>
 
-## Key Features
-
-- **Voice Cloning Profiles**: Build, save, and manage custom cloned voice profiles from short (3-10s) reference clips.
-- **Zero-Shot Voice Design (New)**: Style voices dynamically using the designer dashboard (configure Gender, Accent, Speed, and Pitch in real-time) with automatic multi-engine fallbacks (Kokoro / Piper).
-- **Inline Non-Verbal Controls**: A quick-insert cues panel to seamlessly add expressiveness like `[laughter]`, `[sigh]`, or `[surprise-ah]` directly into text.
-- **Audio Playback Controls**: Dedicated play, stop, and mute button controls to manage audio streams in the chat interface.
-- **System Diagnostics Badge**: A real-time system status widget displaying availability and load status of synthesis engines (Piper, Kokoro, eSpeak-ng).
-- **Theme Switcher**: Smooth toggle between clean light mode and premium dark mode.
-- **Production-Hardened Security**: Protected endpoints preventing path traversals, configurable CORS headers, and secure environment variable loaders.
+<p align="center">
+  <img src="static/screenshot.png" alt="MimicAI Dashboard Screenshot" width="850" style="border-radius: 12px; border: 1px solid #3c4043;"/>
+</p>
 
 ---
 
-## Installation
+## What is MimicAI?
 
-### Step 1: Clone and Set Up Dependencies
-Use python virtual environments (`venv`) or `uv` to sync dependencies:
+MimicAI is a lightweight AI voice assistant and voice cloning tool. You can record just 5 to 10 seconds of your voice sample, and it will speak back in your exact voice. If you don't want to clone, you can directly design custom voices with different accents, speed, and pitch. 
+
+The whole UI is styled using Google Chrome dark mode colours, so it feels very clean and easy on the eyes.
+
+---
+
+## Main Features
+
+- **Quick Voice Cloning**: Just record 5-10 seconds of clear speech from the sidebar and save the profile. It will clone and speak right away.
+- **Voice Designer**: If you don't want to use your own voice, choose between male/female, pick accents (US, UK, Indian English, Japanese), and adjust speed and pitch.
+- **Expressiveness Cues**: Easily insert cues like `laughter`, `applause`, or `sigh` into the chat to make speech sound natural.
+- **Chrome Dark Mode**: Clean `#202124` palette with  Blue accents. 
+- **Multi-Engine Fallbacks**: Uses Piper TTS for instant zerolatency speech, Kokoro for voice design, and F5-TTS / OpenVoice for voice cloning.
+- **Gemini Streaming**: Fast answers using Gemini  or Hack Club AI  API
+
+---
+
+## How to Run Locally
+
+### 1. Set up Python virtual environment
+Open terminal in the project folder and run:
 
 ```bash
-git clone https://github.com/stairmoss/mimicAI.git
-cd mimicAI
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Step 2: Configure Environment Variables
-Create a `.env` file in the root directory:
+### 2. Add API keys (Optional)
+Copy `.env.example` to `.env` if you want to use Google Gemini:
 
 ```env
 PORT=8000
 HOST=127.0.0.1
-CORS_ORIGINS=*
-HACKCLUB_API_KEY=your_optional_api_key
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
----
-
-## Quick Start
-
-Launch the local web application server:
+### 3. Start the server
+Simply run:
 
 ```bash
 python3 app.py
 ```
 
-Open `http://127.0.0.1:8000` in your web browser to access the MimicAI dashboard.
+Then open your browser and go to:
+**http://127.0.0.1:8000**
 
 ---
 
+## Quick Voice Cloning Guide
 
-## Gemini API Setup
-Add your `GEMINI_API_KEY` to the `.env` file to enable Google Gemini 2.0 Flash for instant streaming responses.
-
-## Voice Cloning Quick Start
-1. Open the MimicAI website interface.
-2. Click **Record Voice Sample** in the sidebar.
-3. Record 5–10 seconds of clear speech and click **Save Voice Profile**.
-4. Select your voice profile and start chatting!
+1. Open the website on `http://127.0.0.1:8000`.
+2. Click **Record Voice Sample** in the left sidebar.
+3. Speak clearly for 5 to 10 seconds and click **Save Voice Profile**.
+4. Select your saved voice from the dropdown at the top right and start chatting!

@@ -1,5 +1,3 @@
-/* ───────── MimicAI v2 — Frontend ───────── */
-
 const API = {
   chat: '/api/chat',
   voices: '/api/voices',
@@ -23,7 +21,6 @@ const KEYS = {
   voiceDesign: 'mimicai:voice-design',
 };
 
-/* ───────── State ───────── */
 const state = {
   messages: [],
   voices: [],
@@ -36,32 +33,30 @@ const state = {
   autoSpeak: false,
   lightweightTts: false,
   currentAudio: null,
-  theme: 'dark',
+  theme: "dark",
   voiceMode: 'profiles',
   voiceDesign: {
     gender: 'female',
     accent: 'us',
     speed: 1.0,
     pitch: 1.0,
-    accent: 'us',
   },
 };
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
-/* ───────── Init ───────── */
 document.addEventListener('DOMContentLoaded', () => {
   state.selectedVoice = localStorage.getItem(KEYS.voice) || null;
   state.autoSpeak = localStorage.getItem(KEYS.autoSpeak) === 'true';
   state.lightweightTts = localStorage.getItem(KEYS.lightweightTts) === 'true';
   state.theme = localStorage.getItem(KEYS.theme) || 'dark';
   document.documentElement.setAttribute('data-theme', state.theme);
-  
+
   state.voiceMode = localStorage.getItem(KEYS.voiceMode) || 'profiles';
   try {
-    const savedDesign = localStorage.getItem(KEYS.voiceDesign);
-    if (savedDesign) state.voiceDesign = JSON.parse(savedDesign);
+    const saved = localStorage.getItem(KEYS.voiceDesign);
+    if (saved) state.voiceDesign = JSON.parse(saved);
   } catch {}
 
   bindEvents();
@@ -70,9 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
   loadVoices();
   loadLanguages();
   checkEngineStatus();
-  // Poll status every 30 seconds
   setInterval(checkEngineStatus, 30000);
 });
+
 
 function bindEvents() {
   $('#send-btn').addEventListener('click', sendMessage);
@@ -80,13 +75,14 @@ function bindEvents() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
   $('#chat-input').addEventListener('input', () => {
-    const t = $('#chat-input');
-    t.style.height = 'auto';
-    t.style.height = Math.min(t.scrollHeight, 150) + 'px';
+    const el = $('#chat-input');
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 150) + 'px';
   });
 
   $('#toggle-sidebar').addEventListener('click', () => $('.sidebar').classList.toggle('hidden'));
-  const nb = $('#new-chat-btn'); if (nb) nb.addEventListener('click', newChat);
+  const nb = $('#new-chat-btn');
+  if (nb) nb.addEventListener('click', newChat);
 
   $('#record-voice-btn').addEventListener('click', openModal);
   $('#modal-close-btn').addEventListener('click', closeModal);
@@ -113,7 +109,7 @@ function bindEvents() {
     lt.addEventListener('change', (e) => {
       state.lightweightTts = e.target.checked;
       localStorage.setItem(KEYS.lightweightTts, String(state.lightweightTts));
-      toast(state.lightweightTts ? 'Lightweight OmniVoice enabled' : 'Full OmniVoice enabled', 'info');
+      toast(state.lightweightTts ? 'Lightweight mode on' : 'Full mode on', 'info');
     });
   }
 
@@ -135,9 +131,9 @@ function bindEvents() {
     });
   }
 
-  const themeToggle = $('#theme-toggle');
-  if (themeToggle) {
-    themeToggle.addEventListener('click', () => {
+  const themeBtn = $('#theme-toggle');
+  if (themeBtn) {
+    themeBtn.addEventListener('click', () => {
       state.theme = state.theme === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', state.theme);
       localStorage.setItem(KEYS.theme, state.theme);
@@ -150,8 +146,8 @@ function bindEvents() {
       const ta = $('#chat-input');
       const start = ta.selectionStart;
       const end = ta.selectionEnd;
-      const text = ta.value;
-      ta.value = text.substring(0, start) + sym + text.substring(end);
+      const val = ta.value;
+      ta.value = val.substring(0, start) + sym + val.substring(end);
       ta.focus();
       ta.selectionStart = ta.selectionEnd = start + sym.length;
       toast('Inserted ' + sym, 'info');
@@ -182,43 +178,43 @@ function bindEvents() {
     });
   });
 
-  const designAccent = $('#design-accent');
-  if (designAccent) {
-    designAccent.addEventListener('change', (e) => {
+  const accentEl = $('#design-accent');
+  if (accentEl) {
+    accentEl.addEventListener('change', (e) => {
       state.voiceDesign.accent = e.target.value;
       localStorage.setItem(KEYS.voiceDesign, JSON.stringify(state.voiceDesign));
     });
   }
 
-  const designSpeed = $('#design-speed');
-  if (designSpeed) {
-    designSpeed.addEventListener('input', (e) => {
-      const val = parseFloat(e.target.value).toFixed(1);
-      state.voiceDesign.speed = Math.max(0.5, Math.min(2.0, parseFloat(val)));
-      $('#val-speed').textContent = val + 'x';
+  const speedEl = $('#design-speed');
+  if (speedEl) {
+    speedEl.addEventListener('input', (e) => {
+      const v = parseFloat(e.target.value).toFixed(1);
+      state.voiceDesign.speed = Math.max(0.5, Math.min(2.0, parseFloat(v)));
+      $('#val-speed').textContent = v + 'x';
       localStorage.setItem(KEYS.voiceDesign, JSON.stringify(state.voiceDesign));
     });
   }
 
-  const designPitch = $('#design-pitch');
-  if (designPitch) {
-    designPitch.addEventListener('input', (e) => {
-      const val = parseFloat(e.target.value).toFixed(1);
-      state.voiceDesign.pitch = parseFloat(val);
-      $('#val-pitch').textContent = val;
+  const pitchEl = $('#design-pitch');
+  if (pitchEl) {
+    pitchEl.addEventListener('input', (e) => {
+      const v = parseFloat(e.target.value).toFixed(1);
+      state.voiceDesign.pitch = parseFloat(v);
+      $('#val-pitch').textContent = v;
       localStorage.setItem(KEYS.voiceDesign, JSON.stringify(state.voiceDesign));
     });
   }
 }
 
-/* ───────── Chat ───────── */
 async function sendMessage() {
   const input = $('#chat-input');
   const text = input.value.trim();
   if (!text || state.isGenerating) return;
 
   addMsg('user', text);
-  input.value = ''; input.style.height = 'auto';
+  input.value = '';
+  input.style.height = 'auto';
   hideWelcome();
 
   state.isGenerating = true;
@@ -242,7 +238,8 @@ async function sendMessage() {
 
     const reader = res.body.getReader();
     const dec = new TextDecoder();
-    let aiText = '', buf = '';
+    let aiText = '';
+    let buf = '';
     const msgEl = addMsg('ai', '', true);
 
     while (true) {
@@ -262,7 +259,7 @@ async function sendMessage() {
         } catch {}
       }
     }
-    // flush remaining buffer
+
     if (buf.trim().startsWith('data: ')) {
       const d = buf.trim().slice(6);
       if (d !== '[DONE]') {
@@ -276,7 +273,6 @@ async function sendMessage() {
     if (aiText.trim()) {
       state.messages.push({ role: 'assistant', content: aiText });
       addActions(msgEl, aiText);
-      // Auto-play TTS if desired
       if (state.autoSpeak && state.selectedVoice) {
         const btn = msgEl.querySelector('.tts-btn');
         if (btn) playTts(aiText, btn);
@@ -287,7 +283,7 @@ async function sendMessage() {
     }
   } catch (err) {
     removeTyping();
-    addMsg('ai', `Connection error (switching to fallback): ${err.message}`);
+    addMsg('ai', `Connection error: ${err.message}`);
   } finally {
     state.isGenerating = false;
     setSendBtn(false);
@@ -322,14 +318,12 @@ function addActions(el, text) {
   const a = el.querySelector('.message-actions');
   if (!a) return;
 
-  // Listen button
   const tb = document.createElement('button');
   tb.className = 'msg-action-btn tts-btn';
   tb.innerHTML = 'Listen';
   tb.onclick = () => playTts(text, tb);
   a.appendChild(tb);
 
-  // Copy button
   const cb = document.createElement('button');
   cb.className = 'msg-action-btn';
   cb.innerHTML = 'Copy';
@@ -345,15 +339,24 @@ function addActions(el, text) {
 function showTyping() {
   const c = $('#messages');
   const el = document.createElement('div');
-  el.className = 'typing-indicator'; el.id = 'typing-indicator';
+  el.className = 'typing-indicator';
+  el.id = 'typing-indicator';
   el.innerHTML = `
-    <div class="message-avatar" style="background:linear-gradient(135deg,var(--accent),#b06ef9);color:white">AI</div>
+    <div class="message-avatar">AI</div>
     <div class="typing-dots"><span></span><span></span><span></span></div>`;
-  c.appendChild(el); scroll();
+  c.appendChild(el);
+  scroll();
 }
-function removeTyping() { const e = $('#typing-indicator'); if (e) e.remove(); }
 
-function hideWelcome() { const w = $('#welcome-screen'); if (w) w.style.display = 'none'; }
+function removeTyping() {
+  const el = $('#typing-indicator');
+  if (el) el.remove();
+}
+
+function hideWelcome() {
+  const w = $('#welcome-screen');
+  if (w) w.style.display = 'none';
+}
 
 function newChat() {
   state.messages = [];
@@ -361,7 +364,40 @@ function newChat() {
   c.innerHTML = `
     <div class="welcome" id="welcome-screen">
       <div class="welcome-glow"></div>
-      <div class="welcome-icon">M</div>
+      <div class="welcome-logo">
+        <svg width="72" height="72" viewBox="0 0 68 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="welWave1" x1="12" y1="34" x2="56" y2="34" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#8ab4f8"/>
+              <stop offset="100%" stop-color="#80d8ff"/>
+            </linearGradient>
+            <linearGradient id="welWave2" x1="12" y1="34" x2="56" y2="34" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#aecbfa"/>
+              <stop offset="100%" stop-color="#8ab4f8"/>
+            </linearGradient>
+            <radialGradient id="welGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="rgba(138, 180, 248, 0.35)"/>
+              <stop offset="100%" stop-color="rgba(138, 180, 248, 0)"/>
+            </radialGradient>
+          </defs>
+          <rect width="68" height="68" rx="19" fill="#292a2d" stroke="#3c4043" stroke-width="1.6"/>
+          <circle cx="34" cy="34" r="28" fill="url(#welGlow)"/>
+          <line x1="17.5" y1="26" x2="17.5" y2="42" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" opacity="0.35"/>
+          <line x1="23" y1="19" x2="23" y2="49" stroke="#8ab4f8" stroke-width="2.5" stroke-linecap="round" opacity="0.45"/>
+          <line x1="45" y1="19" x2="45" y2="49" stroke="#80d8ff" stroke-width="2.5" stroke-linecap="round" opacity="0.45"/>
+          <line x1="50.5" y1="26" x2="50.5" y2="42" stroke="#80d8ff" stroke-width="2" stroke-linecap="round" opacity="0.35"/>
+          <path d="M12 34 C17 16, 29 16, 34 34 C39 52, 51 52, 56 34" stroke="url(#welWave1)" stroke-width="3.5" stroke-linecap="round"/>
+          <path d="M12 34 C17 52, 29 52, 34 34 C39 16, 51 16, 56 34" stroke="url(#welWave2)" stroke-width="3.5" stroke-linecap="round"/>
+          <circle cx="23" cy="17" r="3.2" fill="#8ab4f8"/>
+          <circle cx="23" cy="51" r="3.2" fill="#aecbfa"/>
+          <circle cx="45" cy="17" r="3.2" fill="#80d8ff"/>
+          <circle cx="45" cy="51" r="3.2" fill="#8ab4f8"/>
+          <circle cx="12" cy="34" r="2.2" fill="#8ab4f8"/>
+          <circle cx="56" cy="34" r="2.2" fill="#80d8ff"/>
+          <path d="M34 27 Q34 34 27 34 Q34 34 34 41 Q34 34 41 34 Q34 34 34 27 Z" fill="#ffffff"/>
+          <circle cx="34" cy="34" r="1.6" fill="#8ab4f8"/>
+        </svg>
+      </div>
       <h1>MimicAI</h1>
       <p>Chat with AI and hear responses spoken aloud. Record a voice sample in the sidebar, then start chatting.</p>
       <div class="welcome-pills">
@@ -381,35 +417,38 @@ function newChat() {
 }
 
 function setSendBtn(loading) {
-  const b = $('#send-btn');
-  b.disabled = loading;
-  if (loading) b.innerHTML = '<div class="tts-spinner" style="border-top-color:white"></div>';
-  else b.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
+  const btn = $('#send-btn');
+  btn.disabled = loading;
+  if (loading) btn.innerHTML = '<div class="tts-spinner" style="border-top-color:#202124"></div>';
+  else btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
 }
 
 function scroll() {
-  const a = $('#chat-area');
-  requestAnimationFrame(() => { a.scrollTop = a.scrollHeight; });
+  const el = $('#chat-area');
+  requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
 }
 
-/* ───────── TTS ───────── */
 async function playTts(text, btn) {
   if (!text || !btn) return;
   const isProfiles = state.voiceMode === 'profiles';
   const voiceId = isProfiles ? (state.selectedVoice || null) : null;
-  if (isProfiles && !voiceId) { toast('Select a voice profile or switch to Design Voice', 'info'); return; }
+  if (isProfiles && !voiceId) {
+    toast('Select a voice profile or switch to Design Voice', 'info');
+    return;
+  }
 
   const voiceDesign = isProfiles ? null : state.voiceDesign;
   let lang = 'en';
   if (isProfiles) {
-    const profile = state.voices.find(v => v.id === voiceId);
-    lang = profile?.language || 'en';
+    const prof = state.voices.find(v => v.id === voiceId);
+    lang = prof?.language || 'en';
   } else {
     lang = voiceDesign.accent === 'jp' ? 'ja' : 'en';
   }
 
   const orig = btn.innerHTML;
-  btn.innerHTML = '⏳ Loading…'; btn.disabled = true;
+  btn.innerHTML = '⏳ Loading…';
+  btn.disabled = true;
 
   try {
     const res = await fetch(API.tts, {
@@ -436,34 +475,33 @@ async function playTts(text, btn) {
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
 
-    // Create a visible audio player and append it below the message bubble
-    let playerContainer = btn.parentElement.querySelector('.audio-player-container');
-    if (!playerContainer) {
-      playerContainer = document.createElement('div');
-      playerContainer.className = 'audio-player-container';
-      playerContainer.style.marginTop = '10px';
-      playerContainer.style.width = '100%';
-      btn.parentElement.appendChild(playerContainer);
+    let playerBox = btn.parentElement.querySelector('.audio-player-container');
+    if (!playerBox) {
+      playerBox = document.createElement('div');
+      playerBox.className = 'audio-player-container';
+      playerBox.style.marginTop = '10px';
+      playerBox.style.width = '100%';
+      btn.parentElement.appendChild(playerBox);
     }
-    
-    playerContainer.innerHTML = `<audio controls src="${url}" style="height:32px; width:100%; outline:none; border-radius:16px;"></audio>`;
-    const audio = playerContainer.querySelector('audio');
-    
+
+    playerBox.innerHTML = `<audio controls src="${url}" style="height:32px; width:100%; outline:none; border-radius:16px;"></audio>`;
+    const audio = playerBox.querySelector('audio');
+
     setCurrentAudio(audio);
-    
     btn.innerHTML = '▶ Replay Speech';
     setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 2000);
-    
-    audio.controlsList = 'nodownload'; audio.play().catch(e => { toast('Playback failed: ' + e.message, 'error'); });
-    
+
+    audio.controlsList = 'nodownload';
+    audio.play().catch(e => { toast('Playback failed: ' + e.message, 'error'); });
+
     if (engine) toast(`Generated via ${engine}`, 'info');
   } catch (err) {
-    btn.innerHTML = orig; btn.disabled = false;
+    btn.innerHTML = orig;
+    btn.disabled = false;
     toast(err.message, 'error');
   }
 }
 
-/* ───────── Voice Profiles ───────── */
 async function loadVoices() {
   try {
     const r = await fetch(API.voices);
@@ -512,9 +550,10 @@ function updateVoiceSelect() {
   const sel = $('#voice-select');
   while (sel.options.length > 1) sel.remove(1);
   state.voices.forEach(v => {
-    const o = document.createElement('option');
-    o.value = v.id; o.textContent = `🎤 ${v.name}`;
-    sel.appendChild(o);
+    const opt = document.createElement('option');
+    opt.value = v.id;
+    opt.textContent = `🎤 ${v.name}`;
+    sel.appendChild(opt);
   });
   if (state.selectedVoice) {
     const ok = state.voices.some(v => v.id === state.selectedVoice);
@@ -535,8 +574,11 @@ function setCurrentAudio(audio) {
   if (audio) {
     audio.onplay = () => { if (stopBtn) stopBtn.style.display = 'flex'; };
     audio.onpause = () => { if (stopBtn) stopBtn.style.display = 'none'; };
-    audio.onended = () => { if (stopBtn) stopBtn.style.display = 'none'; setCurrentAudio(null);
-        toast('Speech playback stopped', 'info'); };
+    audio.onended = () => {
+      if (stopBtn) stopBtn.style.display = 'none';
+      setCurrentAudio(null);
+      toast('Speech playback stopped', 'info');
+    };
     if (stopBtn) stopBtn.style.display = 'flex';
   } else {
     if (stopBtn) stopBtn.style.display = 'none';
@@ -549,7 +591,9 @@ function persistVoice() {
 }
 
 async function previewVoice(voice, btn) {
-  const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = '…';
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '…';
   try {
     const r = await fetch(API.voicePreview(voice.id), {
       method: 'POST',
@@ -561,10 +605,17 @@ async function previewVoice(voice, btn) {
     const a = new Audio(url);
     setCurrentAudio(a);
     await a.play();
-    a.onended = () => { setCurrentAudio(null);
-        toast('Speech playback stopped', 'info'); URL.revokeObjectURL(url); };
-  } catch (e) { toast(e.message, 'error'); }
-  finally { btn.disabled = false; btn.innerHTML = orig; }
+    a.onended = () => {
+      setCurrentAudio(null);
+      toast('Speech playback stopped', 'info');
+      URL.revokeObjectURL(url);
+    };
+  } catch (e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
 }
 
 async function deleteVoice(id) {
@@ -572,15 +623,29 @@ async function deleteVoice(id) {
   try {
     const r = await fetch(API.voiceDelete(id), { method: 'DELETE' });
     if (r.ok) {
-      if (state.selectedVoice === id) { state.selectedVoice = null; $('#voice-select').value = ''; persistVoice(); }
-      toast('Voice deleted', 'success'); loadVoices();
+      if (state.selectedVoice === id) {
+        state.selectedVoice = null;
+        $('#voice-select').value = '';
+        persistVoice();
+      }
+      toast('Voice deleted', 'success');
+      loadVoices();
     }
-  } catch { toast('Failed to delete', 'error'); }
+  } catch {
+    toast('Failed to delete', 'error');
+  }
 }
 
-/* ───────── Recording ───────── */
-function openModal() { $('#record-modal').classList.add('active'); resetRecording(); }
-function closeModal() { $('#record-modal').classList.remove('active'); stopRecording(); resetRecording(); }
+function openModal() {
+  $('#record-modal').classList.add('active');
+  resetRecording();
+}
+
+function closeModal() {
+  $('#record-modal').classList.remove('active');
+  stopRecording();
+  resetRecording();
+}
 
 function resetRecording() {
   state.recordedChunks = [];
@@ -668,45 +733,38 @@ async function saveVoice() {
   fd.append('language', lang || 'en');
 
   const btn = $('#save-voice-btn');
-  btn.disabled = true; btn.textContent = 'Saving…';
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
 
-  // Open the training modal
   $('#training-modal').classList.add('active');
-  const progressBar = $('#training-progress-bar');
-  const statusText = $('#training-status-text');
+  const barEl = $('#training-progress-bar');
+  const statusEl = $('#training-status-text');
 
-  let progress = 10;
-  progressBar.style.width = '10%';
-  statusText.textContent = 'Uploading voice sample...';
+  let pct = 10;
+  barEl.style.width = '10%';
+  statusEl.textContent = 'Uploading voice sample...';
 
-  const progressInterval = setInterval(() => {
-    if (progress < 90) {
-      progress += Math.floor(Math.random() * 8) + 2;
-      if (progress > 90) progress = 90;
-      progressBar.style.width = `${progress}%`;
+  const timer = setInterval(() => {
+    if (pct < 90) {
+      pct += Math.floor(Math.random() * 8) + 2;
+      if (pct > 90) pct = 90;
+      barEl.style.width = `${pct}%`;
 
-      if (progress < 30) {
-        statusText.textContent = 'Uploading voice sample...';
-      } else if (progress < 60) {
-        statusText.textContent = 'Transcribing reference speech patterns (Whisper)...';
-      } else {
-        statusText.textContent = 'Generating speaker profile and optimizing F5-TTS...';
-      }
+      if (pct < 30) statusEl.textContent = 'Uploading voice sample...';
+      else if (pct < 60) statusEl.textContent = 'Transcribing reference speech patterns (Whisper)...';
+      else statusEl.textContent = 'Generating speaker profile and optimizing F5-TTS...';
     }
   }, 1000);
 
   try {
     const r = await fetch(API.voiceRecord, { method: 'POST', body: fd });
     const d = await r.json().catch(() => ({}));
-    
-    clearInterval(progressInterval);
+    clearInterval(timer);
 
     if (r.ok && d.success) {
-      progressBar.style.width = '100%';
-      statusText.textContent = 'Training complete!';
-      
-      // Short delay so they see the 100% completion
-      await new Promise(resolve => setTimeout(resolve, 800));
+      barEl.style.width = '100%';
+      statusEl.textContent = 'Training complete!';
+      await new Promise(res => setTimeout(res, 800));
       $('#training-modal').classList.remove('active');
 
       toast(`Voice "${name}" saved!`, 'success');
@@ -715,14 +773,15 @@ async function saveVoice() {
       if (d.voice?.id) {
         state.selectedVoice = d.voice.id;
         $('#voice-select').value = d.voice.id;
-        persistVoice(); renderVoiceList();
+        persistVoice();
+        renderVoiceList();
       }
     } else {
       $('#training-modal').classList.remove('active');
       toast(d.error || 'Save failed', 'error');
     }
   } catch (e) {
-    clearInterval(progressInterval);
+    clearInterval(timer);
     $('#training-modal').classList.remove('active');
     toast('Connection error: ' + e.message, 'error');
   } finally {
@@ -731,7 +790,6 @@ async function saveVoice() {
   }
 }
 
-/* ───────── Languages ───────── */
 async function loadLanguages() {
   try {
     const r = await fetch(API.languages);
@@ -740,7 +798,14 @@ async function loadLanguages() {
     const sel = $('#voice-language');
     if (!sel) return;
     const existing = new Set(Array.from(sel.options).map(o => o.value));
-    langs.forEach(l => { if (!existing.has(l.id)) { const o = document.createElement('option'); o.value = l.id; o.textContent = l.name; sel.appendChild(o); } });
+    langs.forEach(l => {
+      if (!existing.has(l.id)) {
+        const o = document.createElement('option');
+        o.value = l.id;
+        o.textContent = l.name;
+        sel.appendChild(o);
+      }
+    });
   } catch {}
 }
 
@@ -761,7 +826,6 @@ async function checkEngineStatus() {
   } catch {}
 }
 
-/* ───────── Toast ───────── */
 function toast(msg, type = 'success') {
   const c = $('#toast-container');
   const t = document.createElement('div');
@@ -769,39 +833,45 @@ function toast(msg, type = 'success') {
   const icon = type === 'success' ? '✓' : type === 'error' ? '⚠' : 'ℹ';
   t.innerHTML = `${icon} ${esc(msg)}`;
   c.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(20px)'; setTimeout(() => t.remove(), 300); }, 3500);
+  setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(20px)';
+    setTimeout(() => t.remove(), 300);
+  }, 3500);
 }
 
-/* ───────── Utilities ───────── */
-function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
 
+// TODO: replace with markdown-it or marked if requirements expand
 function md(text) {
   if (!text) return '';
   let h = esc(text);
-  
-  // 1. Parse code blocks
+
   const codeBlocks = [];
-  h = h.replace(/```(\w*)\n?([\s\S]*?)```/g, (match, lang, code) => {
-    const placeholder = `__CODE_BLOCK_PLACEHOLDER_${codeBlocks.length}__`;
+  h = h.replace(/```(\w*)\n?([\s\S]*?)```/g, (m, lang, code) => {
+    const id = `__CODE_${codeBlocks.length}__`;
     codeBlocks.push(`<pre style="background:rgba(255,255,255,0.04);padding:12px;border-radius:8px;overflow-x:auto;font-size:13px;margin:8px 0;border:1px solid var(--border)"><code>${code}</code></pre>`);
-    return placeholder;
+    return id;
   });
 
-  // 2. Parse inline code
   const inlineCodes = [];
-  h = h.replace(/`([^`]+)`/g, (match, code) => {
-    const placeholder = `__INLINE_CODE_PLACEHOLDER_${inlineCodes.length}__`;
+  h = h.replace(/`([^`]+)`/g, (m, code) => {
+    const id = `__INLINE_${inlineCodes.length}__`;
     inlineCodes.push(`<code style="background:var(--accent-dim);padding:2px 6px;border-radius:4px;font-size:13px;color:var(--accent)">${code}</code>`);
-    return placeholder;
+    return id;
   });
 
-  // 3. Parse Tables
   h = h.replace(/(?:^|\n)(\|.*\|)(?:\n\|.*\|)+/g, (tableBlock) => {
     const lines = tableBlock.trim().split('\n');
     let hasHeader = false;
     let headerHtml = '';
     let bodyHtml = '';
-    
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
@@ -811,7 +881,7 @@ function md(text) {
       }
       const cells = line.split('|').slice(1, -1).map(c => c.trim());
       const rowHtml = `<tr>${cells.map(c => `<td style="padding:8px 12px;border:1px solid var(--border);">${c}</td>`).join('')}</tr>`;
-      
+
       if (i === 0 && !hasHeader) {
         headerHtml = `<thead><tr>${cells.map(c => `<th style="padding:8px 12px;border:1px solid var(--border);background:var(--bg3);font-weight:600;">${c}</th>`).join('')}</tr></thead>`;
       } else if (i === 0 || (i === 1 && hasHeader)) {
@@ -823,38 +893,30 @@ function md(text) {
     return `\n<table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;background:var(--bg2);border:1px solid var(--border);">${headerHtml}<tbody>${bodyHtml}</tbody></table>\n`;
   });
 
-  // 4. Parse Blockquotes
-  h = h.replace(/(?:^|\n)&gt;[ \t]+(.*)/g, (match, quoteText) => {
-    return `\n<blockquote style="border-left:3px solid var(--accent);padding-left:12px;color:var(--text2);margin:8px 0;font-style:italic;">${quoteText}</blockquote>\n`;
+  h = h.replace(/(?:^|\n)&gt;[ \t]+(.*)/g, (m, txt) => {
+    return `\n<blockquote style="border-left:3px solid var(--accent);padding-left:12px;color:var(--text2);margin:8px 0;font-style:italic;">${txt}</blockquote>\n`;
   });
 
-  // 5. Parse Lists
   h = h.replace(/(?:^|\n)[-*+][ \t]+(.*)/g, '\n<li>$1</li>');
-  h = h.replace(/(?:<li>.*<\/li>\s*)+/g, (match) => `<ul style="margin:8px 0 8px 20px;padding-left:8px;list-style-type:disc;">${match.trim()}</ul>`);
+  h = h.replace(/(?:<li>.*<\/li>\s*)+/g, (m) => `<ul style="margin:8px 0 8px 20px;padding-left:8px;list-style-type:disc;">${m.trim()}</ul>`);
   h = h.replace(/(?:^|\n)\d+\.[ \t]+(.*)/g, '\n<li class="ord-li">$1</li>');
-  h = h.replace(/(?:<li class="ord-li">.*<\/li>\s*)+/g, (match) => {
-    const cleaned = match.replace(/class="ord-li"/g, '');
+  h = h.replace(/(?:<li class="ord-li">.*<\/li>\s*)+/g, (m) => {
+    const cleaned = m.replace(/class="ord-li"/g, '');
     return `<ol style="margin:8px 0 8px 20px;padding-left:8px;list-style-type:decimal;">${cleaned.trim()}</ol>`;
   });
 
-  // 6. Horizontal Rules
   h = h.replace(/(?:^|\n)---[ \t]*(\n|$)/g, '\n<hr style="border:0;border-top:1px solid var(--border);margin:16px 0;">\n');
-
-  // 7. Bold and Italic
   h = h.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   h = h.replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-  // 8. Convert newlines to breaks
   h = h.replace(/\n/g, '<br>');
   h = h.replace(/<br><(ul|ol|table|blockquote|pre|hr|li|thead|tbody|tr)/g, '<$1');
   h = h.replace(/<\/(ul|ol|table|blockquote|pre|hr|li|thead|tbody|tr)><br>/g, '</$1>');
 
-  // 9. Restore placeholders
   inlineCodes.forEach((codeHtml, idx) => {
-    h = h.replace(`__INLINE_CODE_PLACEHOLDER_${idx}__`, codeHtml);
+    h = h.replace(`__INLINE_${idx}__`, codeHtml);
   });
   codeBlocks.forEach((codeHtml, idx) => {
-    h = h.replace(`__CODE_BLOCK_PLACEHOLDER_${idx}__`, codeHtml);
+    h = h.replace(`__CODE_${idx}__`, codeHtml);
   });
 
   return h;
@@ -872,7 +934,7 @@ function applyVoiceModeUI() {
   const tabD = $('#tab-design');
   const panelP = $('#panel-profiles');
   const panelD = $('#panel-design');
-  
+
   if (isProfiles) {
     if (tabP) tabP.classList.add('active');
     if (tabD) tabD.classList.remove('active');
@@ -891,16 +953,16 @@ function applyVoiceDesignUI() {
   $$('.design-toggle-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.gender === d.gender);
   });
-  const designAccent = $('#design-accent');
-  if (designAccent) designAccent.value = d.accent;
-  
-  const designSpeed = $('#design-speed');
-  if (designSpeed) designSpeed.value = d.speed;
+  const accentEl = $('#design-accent');
+  if (accentEl) accentEl.value = d.accent;
+
+  const speedEl = $('#design-speed');
+  if (speedEl) speedEl.value = d.speed;
   const valSpeed = $('#val-speed');
   if (valSpeed) valSpeed.textContent = d.speed + 'x';
-  
-  const designPitch = $('#design-pitch');
-  if (designPitch) designPitch.value = d.pitch;
+
+  const pitchEl = $('#design-pitch');
+  if (pitchEl) pitchEl.value = d.pitch;
   const valPitch = $('#val-pitch');
   if (valPitch) valPitch.textContent = d.pitch;
 }
