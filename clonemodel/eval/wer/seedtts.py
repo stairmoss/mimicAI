@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """
 Computes word error rate (WER) with Whisper-large-v3 for English and
@@ -38,7 +23,6 @@ from omnivoice.eval.utils import load_eval_waveform
 from omnivoice.eval.wer.common import process_one
 from omnivoice.utils.data_utils import read_test_list
 
-# --- Global variables for worker processes ---
 worker_pipe = None
 worker_device = None
 
@@ -113,7 +97,6 @@ def load_whisper_model(model_dir, device):
 
     import transformers
 
-    # Suppress transformers logging
     transformers.logging.set_verbosity_error()
 
     pipe = transformers.pipeline(
@@ -139,7 +122,6 @@ def load_paraformer_model(model_dir, device):
     try:
         from funasr import AutoModel
 
-        # FunASR AutoModel accepts "cuda:0" string or torch.device
         model = AutoModel(
             model=model_path,
             device=str(device),
@@ -225,7 +207,6 @@ def run_eval_worker(data_chunk, lang, batch_size):
     metrics_buffer = []
     try:
         if lang == "en":
-            # Load waveforms as arrays, truncating to 30s
             dataset = [
                 {
                     "array": load_eval_waveform(
@@ -291,7 +272,6 @@ def main():
 
     logging.info(f"Calculating WER for {args.wav_path}")
 
-    # 1. Prepare Data
     logging.info("Reading test list...")
     data_list = []
     samples = read_test_list(args.test_list)
@@ -304,7 +284,6 @@ def main():
     total_files = len(data_list)
     logging.info(f"Total files: {total_files}.")
 
-    # 2. Worker config
     num_gpus = torch.cuda.device_count()
     assert num_gpus > 0, "No GPU found. GPU is required."
     total_workers = num_gpus * args.nj_per_gpu
@@ -317,7 +296,6 @@ def main():
         for rank in range(num_gpus):
             rank_queue.put(rank)
 
-    # 3. Scheduling: Split data into chunks for better load balancing
     chunk_size = max(1, args.batch_size)
     tasks = []
     for i in range(0, total_files, chunk_size):
@@ -328,7 +306,6 @@ def main():
         f"Spawning {total_workers} workers."
     )
 
-    # 4. Execution
     results = []
 
     with ProcessPoolExecutor(
@@ -343,7 +320,6 @@ def main():
                 executor.submit(run_eval_worker, chunk, args.lang, args.batch_size)
             )
 
-        # Unified progress bar
         with tqdm(total=total_files, desc="Eval Progress", dynamic_ncols=True) as pbar:
             for future in as_completed(futures):
                 try:

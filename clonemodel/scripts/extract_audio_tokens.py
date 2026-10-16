@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """
 Extract audio tokens from audio data and pack them into WebDataset shards.
@@ -72,7 +57,6 @@ warnings.filterwarnings(
 HIGGS_INPUT_SAMPLE_RATE = 24_000
 
 
-# Global variables: Store tokenizer and device for each worker process
 worker_tokenizer = None
 worker_feature_extractor = None
 
@@ -191,23 +175,19 @@ def process_init(rank_queue, tokenizer_path):
     """
     global worker_tokenizer, worker_feature_extractor
 
-    # Configure worker process logging
     formatter = (
         "%(asctime)s %(levelname)s [%(filename)s:%(lineno)d]"
         " [Worker %(process)d] %(message)s"
     )
     logging.basicConfig(format=formatter, level=logging.INFO, force=True)
 
-    # Get assigned GPU rank
     rank = rank_queue.get()
-    # Determine device
     if rank != -1 and torch.cuda.is_available():
         worker_device = torch.device(f"cuda:{rank}")
     else:
         worker_device = torch.device("cpu")
 
     logging.debug(f"Worker process initialized with device: {worker_device}")
-    # Load tokenizer onto the specified device
     worker_feature_extractor = AutoFeatureExtractor.from_pretrained(tokenizer_path)
     worker_tokenizer = HiggsAudioV2TokenizerModel.from_pretrained(
         tokenizer_path, device_map=worker_device
@@ -221,7 +201,7 @@ def process_single_sample(sample: dict[str, Any]) -> dict[str, Any]:
     Skips invalid samples during streaming processing.
     """
     try:
-        audio_tensor = sample.get("audio", None)  # shape (1, T)
+        audio_tensor = sample.get("audio", None)
         if audio_tensor is None:
             raise ValueError("Sample missing 'audio' field")
 
@@ -243,7 +223,6 @@ def process_single_sample(sample: dict[str, Any]) -> dict[str, Any]:
             metadata = sample["label"]
             metadata["num_tokens"] = num_tokens
 
-            # Convert to numpy format for subsequent serialization (int16 to save space)
             audio_tokens_np = audio_tokens.to(torch.int16).cpu().numpy()
 
             return {
@@ -326,7 +305,6 @@ def main() -> None:
     args = parser.parse_args()
     mp.set_start_method("spawn", force=True)
 
-    # Validate input arguments
     assert bool(args.input_manifest) != bool(
         args.input_jsonl
     ), "Exactly one of --input_manifest or --input_jsonl must be provided."
@@ -336,7 +314,6 @@ def main() -> None:
             0 <= args.machine_index < args.num_machines
         ), f"machine_index {args.machine_index} must be in [0, {args.num_machines})"
 
-    # Build base dataset and count total samples based on input mode
     if args.input_jsonl:
         logging.info(f"Input mode: raw JSONL ({args.input_jsonl})")
         total_samples = count_lines(args.input_jsonl)
@@ -388,7 +365,6 @@ def main() -> None:
             evaluation=True,
         )
 
-    # Adjust samples_per_shard if min_num_shards would be violated
     samples_per_shard = args.samples_per_shard
     if total_samples > 0:
         estimated_shards = max(
@@ -402,7 +378,6 @@ def main() -> None:
                 f"(total_samples={total_samples})"
             )
 
-    # Apply length filter and create DataLoader
     filtered_dataset = StreamingLengthFilteredDataset(
         base_iterable=base_dataset,
         min_len=args.min_length,
@@ -417,7 +392,6 @@ def main() -> None:
         pin_memory=False,
     )
 
-    # Configure multi-GPU multi-process setup
     num_devices = torch.cuda.device_count()
     if num_devices == 0:
         logging.warning("No GPUs detected - using CPU for processing")
@@ -429,7 +403,6 @@ def main() -> None:
         f"Total processes: {num_processes}"
     )
 
-    # Shared GPU rank queue for process assignment
     manager = mp.Manager()
     rank_queue = manager.Queue()
     for rank in list(range(num_devices)) * args.nj_per_gpu:
@@ -438,18 +411,15 @@ def main() -> None:
         for _ in range(num_processes):
             rank_queue.put(-1)
 
-    # Prepare output paths
     tar_output_pattern = str(Path(args.tar_output_pattern).expanduser())
     jsonl_output_pattern = str(Path(args.jsonl_output_pattern).expanduser())
     Path(tar_output_pattern).parent.mkdir(parents=True, exist_ok=True)
     Path(jsonl_output_pattern).parent.mkdir(parents=True, exist_ok=True)
 
-    # Determine output directory from tar_output_pattern
     output_dir = Path(tar_output_pattern).parent.parent
     error_log_path = str(output_dir / "errors.jsonl")
     manifest_path = str(output_dir / "data.lst")
 
-    # Setup error logger (writes to errors.jsonl)
     error_logger = logging.getLogger("error_log")
     error_logger.setLevel(logging.ERROR)
     error_logger.handlers.clear()
@@ -457,7 +427,6 @@ def main() -> None:
     error_fh.setFormatter(logging.Formatter("%(message)s"))
     error_logger.addHandler(error_fh)
 
-    # Progress and error tracking
     processed_count = 0
     error_count = 0
     write_error_count = 0
@@ -465,7 +434,7 @@ def main() -> None:
     shard_idx = 0
     shard_sample_count = 0
     shard_duration = 0.0
-    shard_manifest = {}  # shard_idx -> (tar_path, jsonl_path, count, duration)
+    shard_manifest = {}
 
     tar_writer = None
     jsonl_file = None
@@ -476,7 +445,6 @@ def main() -> None:
             tar_writer.close()
         if jsonl_file is not None:
             jsonl_file.close()
-        # Record manifest for the previous shard
         if shard_idx > 0 and shard_sample_count > 0:
             prev_idx = shard_idx - 1
             shard_manifest[prev_idx] = (
@@ -514,7 +482,6 @@ def main() -> None:
     def handle_result(result):
         nonlocal processed_count, error_count
         if result["status"] == "success":
-            # Rotate shard if needed
             if tar_writer is None or shard_sample_count >= samples_per_shard:
                 open_new_shard()
             write_sample(result["key"], result["audio_tokens"], result["metadata"])
@@ -563,7 +530,6 @@ def main() -> None:
                         Errors=error_count,
                     )
 
-            # Stream samples from DataLoader
             for sample in dataloader:
                 if len(futures) >= max_pending:
                     drain_completed()
@@ -571,7 +537,6 @@ def main() -> None:
                 future = executor.submit(process_single_sample, sample)
                 futures.add(future)
 
-            # Process remaining futures
             logging.info("Processing remaining pending samples...")
             while futures:
                 drain_completed()
@@ -585,7 +550,6 @@ def main() -> None:
             tar_writer.close()
         if jsonl_file is not None:
             jsonl_file.close()
-        # Record the last shard in the manifest
         if shard_idx > 0 and shard_sample_count > 0:
             last_idx = shard_idx - 1
             shard_manifest[last_idx] = (
@@ -595,13 +559,11 @@ def main() -> None:
                 shard_duration,
             )
 
-    # Write manifest file (data.lst)
     with open(manifest_path, "w", encoding="utf-8") as mf:
         for idx in sorted(shard_manifest.keys()):
             tar_path, jsonl_path, count, duration = shard_manifest[idx]
             mf.write(f"{tar_path} {jsonl_path} {count} {duration:.3f}\n")
 
-    # Output final statistics
     total_failed = error_count + write_error_count
     filtered_and_skipped = total_samples - processed_count - total_failed
     logging.info(

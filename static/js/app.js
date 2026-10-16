@@ -847,7 +847,6 @@ function esc(s) {
   return d.innerHTML;
 }
 
-// TODO: replace with markdown-it or marked if requirements expand
 function md(text) {
   if (!text) return '';
   let h = esc(text);

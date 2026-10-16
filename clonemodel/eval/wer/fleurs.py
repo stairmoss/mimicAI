@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Computes word error rate (WER) for FLEURS multilingual evaluation.
 
@@ -52,8 +37,6 @@ except ImportError:
     logging.error("Please install omnilingual_asr first.")
     exit(1)
 
-# omnilingual-asr may pull a transformers version that lacks
-# HiggsAudioV2TokenizerModel. Pre-register stubs to bypass
 if "mimicvoice" not in sys.modules:
     _root = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
     for _name in (
@@ -72,12 +55,10 @@ from clonemodel.eval.wer.common import log_metrics, process_one
 from clonemodel.eval.wer.text_norm_omni import text_normalize
 from clonemodel.utils.data_utils import read_test_list
 
-# --- Global variables for worker processes ---
 worker_pipe = None
 worker_device = None
 
 
-# fix mismatched language codes between MimicVoice and Omnilingual-ASR model
 rename = {
     "et": "ekk",
     "ms": "zsm",
@@ -90,7 +71,7 @@ def read_language_mapping_from_tsv(
     mapping_path: Path,
 ) -> dict[str, Union[str, List[str]]]:
     with open(mapping_path, "r", encoding="utf-8") as f:
-        _ = f.readline()  # Skip header
+        _ = f.readline()
         language_mapping = {}
         for line in f:
             parts = line.strip().split("\t")
@@ -122,23 +103,13 @@ def clean_cjk_spaces(text):
     meaningful spaces in English or other languages (like Korean).
     """
 
-    # Define CJK (Chinese, Japanese) Unicode ranges
-    # \u4e00-\u9fff: CJK Unified Ideographs (Chinese)
-    # \u3040-\u309f: Hiragana (Japanese)
-    # \u30a0-\u30ff: Katakana (Japanese)
-    # \u3000-\u303f: CJK Symbols and Punctuation
     cjk_range = r"\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\u3000-\u303f"
 
-    # 1. Remove spaces between two CJK characters
-    # Example: "我 爱 你" -> "我爱你"
     text = re.sub(f"([{cjk_range}])\\s+([{cjk_range}])", r"\1\2", text)
 
-    # 2. Remove spaces between a CJK character and a non-CJK character (English/Numbers)
-    # Example: "我 爱 you" -> "我爱you"
     text = re.sub(f"([{cjk_range}])\\s+", r"\1", text)
     text = re.sub(f"\\s+([{cjk_range}])", r"\1", text)
 
-    # 3. Collapse multiple spaces into one for the remaining parts (e.g., English words)
     text = re.sub(r"\s+", " ", text)
 
     return text.strip()
@@ -227,7 +198,6 @@ def process_init(rank_queue, model_card):
     """
     global worker_pipe, worker_device
 
-    # Configure threads constraint
     torch.set_num_threads(2)
 
     try:
@@ -242,7 +212,6 @@ def process_init(rank_queue, model_card):
     logging.info(f"Initializing worker on device: {worker_device}")
 
     try:
-        # Using the model_card argument
         worker_pipe = load_omni_model(model_card, worker_device)
         if worker_pipe is None:
             raise RuntimeError("Model loading failed.")
@@ -261,7 +230,7 @@ def post_process(text: str, lang: str) -> str:
     Returns:
         str: The cleaned and normalized text.
     """
-    lang_id = lang[:3]  # Extract ISO 639-3 code (e.g., 'eng' from 'eng_Latn')
+    lang_id = lang[:3]
     text = text_normalize(
         text,
         iso_code=lang_id,
@@ -287,17 +256,10 @@ def run_eval_worker(data_chunk, language, batch_size):
 
     metrics_buffer = []
     try:
-        # Prepare batch lists for OmniASR
         audio_paths = [item["wav_path"] for item in data_chunk]
 
-        # OmniASR expects explicit language codes for each file if not auto-detected.
-        # Using the language passed to the worker function, or item specific language
-        # Assuming item['lang_id'] is compatible (e.g., 'en', 'zh', 'arb_Arab')
-        # If the model needs full tokens like 'en_Latn', conversion might be needed here depending on input data.
         lang_list = [item.get("lang_id", language) for item in data_chunk]
 
-        # Use the pipeline to infer batch
-        # OmniASR pipeline.transcribe returns a list of strings
         transcriptions = worker_pipe.transcribe(
             audio_paths, lang=lang_list, batch_size=batch_size
         )
@@ -333,7 +295,6 @@ def main():
         force=True,
     )
 
-    # 1. Prepare Data
     logging.info("Reading test list...")
     data_by_lang = defaultdict(list)
     total_files = 0
@@ -366,7 +327,6 @@ def main():
 
     logging.info(f"Total files: {total_files} in {len(data_by_lang)} languages.")
 
-    # 2. Worker config
     num_gpus = torch.cuda.device_count()
     assert num_gpus > 0, "No GPU found. GPU is required."
     total_workers = num_gpus * args.nj_per_gpu
@@ -379,14 +339,10 @@ def main():
         for rank in range(num_gpus):
             rank_queue.put(rank)
 
-    # 3. Scheduling: Split languages into chunks
-    # This prevents one huge language from blocking a worker for too long,
-    # allows better load balancing across the pool.
     tasks = []
     chunk_size = args.chunk_size
 
     for lang_name, items in data_by_lang.items():
-        # Slicing the list into chunks
         for i in range(0, len(items), chunk_size):
             chunk = items[i : i + chunk_size]
             tasks.append({"chunk": chunk, "lang": lang_name})
@@ -395,7 +351,6 @@ def main():
         f"Split data into {len(tasks)} chunks (size ~{chunk_size}). Spawning {total_workers} workers."
     )
 
-    # 4. Execution
     results = []
 
     with ProcessPoolExecutor(
@@ -412,7 +367,6 @@ def main():
                 )
             )
 
-        # Unified progress bar
         with tqdm(total=total_files, desc="Eval Progress", dynamic_ncols=True) as pbar:
             for future in as_completed(futures):
                 try:
@@ -422,11 +376,9 @@ def main():
                 except Exception as e:
                     logging.error(f"Task failed: {e}")
 
-    # 5. Metrics Aggregation
     wers, inses, deles, subses = [], [], [], []
     word_nums = 0
 
-    # Store metrics per language
     lang_stats = {}
 
     fout = None
@@ -450,7 +402,6 @@ def main():
             )
         lang_name = res["lang_name"]
 
-        # Per language stats
         if lang_name not in lang_stats:
             lang_stats[lang_name] = {
                 "inses": [],
@@ -464,7 +415,6 @@ def main():
         lang_stats[lang_name]["word_nums"] += res["word_num"]
 
     print("-" * 50)
-    # Log per-language stats
     per_lang_wers = []
     for lang in sorted(lang_stats.keys()):
         stats = lang_stats[lang]
@@ -480,7 +430,6 @@ def main():
             per_lang_wers.append(lang_wer)
             print("-" * 50)
 
-    # Log Macro-average WER
     if len(per_lang_wers) > 1:
         macro_wer = np.mean(per_lang_wers)
         logging.info(
@@ -504,7 +453,6 @@ def main():
         if fout:
             fout.write(stats_msg + "\n")
 
-    # Log overall stats
     if word_nums > 0:
         log_metrics(fout, "Overall", inses, deles, subses, word_nums)
 

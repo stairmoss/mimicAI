@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """
 Computes speaker similarity (SIM-o) using a WavLM-based
@@ -38,7 +23,6 @@ from omnivoice.utils.data_utils import read_test_list
 
 warnings.filterwarnings("ignore")
 
-# Global variables for workers
 worker_model = None
 worker_device = None
 worker_sr = 16000
@@ -118,10 +102,8 @@ def worker_init(
     worker_sr = 16000
 
     logging.debug(f"Initializing SIM-o worker on {worker_device}")
-    # Temporarily suppress INFO logs to hide verbose WavLM config
     logging.disable(logging.INFO)
 
-    # Initialize Model
     try:
         worker_model = ECAPA_TDNN_WAVLM(
             feat_dim=1024,
@@ -137,7 +119,6 @@ def worker_init(
         worker_model.to(worker_device)
         worker_model.eval()
     finally:
-        # Restore normal logging
         logging.disable(logging.NOTSET)
 
 
@@ -161,11 +142,9 @@ def run_similarity_worker(line_idx, sample, wav_dir, extension):
         if not os.path.exists(eval_wav_path):
             return line_idx, f"Eval wav not found: {eval_wav_path}", None, "error"
 
-        # Compute embeddings pair-wise
         ref_emb = get_embedding(ref_wav_path)
         eval_emb = get_embedding(eval_wav_path)
 
-        # Cosine Similarity
         similarity = torch.nn.functional.cosine_similarity(ref_emb, eval_emb, dim=-1)
 
         return (
@@ -184,7 +163,6 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
 
-    # Main process thread setting
     torch.set_num_threads(2)
 
     mp.set_start_method("spawn", force=True)
@@ -192,7 +170,6 @@ def main():
     formatter = "%(asctime)s %(levelname)s [%(filename)s:%(lineno)d] %(message)s"
     logging.basicConfig(format=formatter, level=logging.INFO, force=True)
 
-    # Prepare paths
     sv_model_path = os.path.join(
         args.model_dir, "speaker_similarity/wavlm_large_finetune.pth"
     )
@@ -203,10 +180,8 @@ def main():
         sys.exit(1)
 
     logging.info(f"Calculating SIM-o for {args.wav_path}")
-    # Read list
     samples = read_test_list(args.test_list)
 
-    # Setup Parallel Processing
     num_gpus = torch.cuda.device_count()
     assert num_gpus > 0, "No GPU found. GPU is required."
     total_procs = num_gpus * args.nj_per_gpu
@@ -260,7 +235,6 @@ def main():
                     prompt_path, eval_path, lang = context
                     scores.append(result)
 
-                    # Accumulate per-language
                     if lang not in lang_stats:
                         lang_stats[lang] = []
                     lang_stats[lang].append(result)

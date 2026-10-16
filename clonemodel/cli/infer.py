@@ -62,7 +62,6 @@ def get_parser() -> argparse.ArgumentParser:
         required=True,
         help="Output WAV file path.",
     )
-    # Voice cloning
     parser.add_argument(
         "--ref_audio",
         type=str,
@@ -75,7 +74,6 @@ def get_parser() -> argparse.ArgumentParser:
         default=None,
         help="Reference text describing the reference audio.",
     )
-    # Voice design
     parser.add_argument(
         "--instruct",
         type=str,
@@ -88,7 +86,6 @@ def get_parser() -> argparse.ArgumentParser:
         default=None,
         help="Language name (e.g. 'English') or code (e.g. 'en').",
     )
-    # Generation parameters
     parser.add_argument("--num_step", type=int, default=32)
     parser.add_argument("--guidance_scale", type=float, default=2.0)
     parser.add_argument("--speed", type=float, default=1.0)

@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """
 UTMOS strong model.
@@ -36,7 +21,7 @@ class UTMOS22Strong(nn.Module):
     def __init__(self):
         """Init."""
 
-        super().__init__()  # pyright: ignore [reportUnknownMemberType]
+        super().__init__()
 
         feat_ssl, feat_domain_emb, feat_judge_emb, feat_rnn_h, feat_proj_h = (
             768,
@@ -47,7 +32,6 @@ class UTMOS22Strong(nn.Module):
         )
         feat_cat = feat_ssl + feat_domain_emb + feat_judge_emb
 
-        # SSL/DataDomainEmb/JudgeIdEmb/BLSTM/Projection
         self.wav2vec2 = Wav2Vec2Model()
         self.domain_emb = nn.Parameter(
             data=torch.empty(1, feat_domain_emb), requires_grad=False
@@ -65,29 +49,20 @@ class UTMOS22Strong(nn.Module):
             nn.Linear(feat_rnn_h * 2, feat_proj_h), nn.ReLU(), nn.Linear(feat_proj_h, 1)
         )
 
-    def forward(self, wave: Tensor, sr: int) -> Tensor:  # pylint: disable=invalid-name
+    def forward(self, wave: Tensor, sr: int) -> Tensor:
         """wave-to-score :: (B, T) -> (B,)"""
 
-        # Feature extraction :: (B, T) -> (B, Frame, Feat)
         unit_series = self.wav2vec2(wave)
         bsz, frm, _ = unit_series.size()
 
-        # DataDomain/JudgeId Embedding's Batch/Time expansion ::
-        # (B=1, Feat) -> (B=bsz, Frame=frm, Feat)
         domain_series = self.domain_emb.unsqueeze(1).expand(bsz, frm, -1)
         judge_series = self.judge_emb.unsqueeze(1).expand(bsz, frm, -1)
 
-        # Feature concatenation :: (B, Frame, Feat=f1) + (B, Frame, Feat=f2) +
-        # (B, Frame, Feat=f3) -> (B, Frame, Feat=f1+f2+f3)
         cat_series = torch.cat([unit_series, domain_series, judge_series], dim=2)
 
-        # Frame-scale score estimation :: (B, Frame, Feat) -> (B, Frame, Feat)
-        # -> (B, Frame, Feat=1) - BLSTM/Projection
         feat_series = self.blstm(cat_series)[0]
         score_series = self.projection(feat_series)
 
-        # Utterance-scale score :: (B, Frame, Feat=1) -> (B, Feat=1)
-        # -> (B,) - Time averaging
         utter_score = score_series.mean(dim=1).squeeze(1) * 2 + 3
 
         return utter_score
@@ -97,7 +72,7 @@ class Wav2Vec2Model(nn.Module):
     """Wav2Vev2."""
 
     def __init__(self):
-        super().__init__()  # pyright: ignore [reportUnknownMemberType]
+        super().__init__()
 
         feat_h1, feat_h2 = 512, 768
         feature_enc_layers = (
@@ -106,25 +81,22 @@ class Wav2Vec2Model(nn.Module):
 
         self.feature_extractor = ConvFeatureExtractionModel(
             conv_layers=feature_enc_layers
-        )  # pyright: ignore [reportGeneralTypeIssues]
+        )
         self.layer_norm = nn.LayerNorm(feat_h1)
         self.post_extract_proj = nn.Linear(feat_h1, feat_h2)
         self.dropout_input = nn.Dropout(0.1)
         self.encoder = TransformerEncoder(feat_h2)
 
-        # Remnants
         self.mask_emb = nn.Parameter(torch.FloatTensor(feat_h2))
 
     def forward(self, source: Tensor):
         """FeatureEncoder + ContextTransformer"""
 
-        # Feature encoding
         features = self.feature_extractor(source)
         features = features.transpose(1, 2)
         features = self.layer_norm(features)
         features = self.post_extract_proj(features)
 
-        # Context transformer
         x = self.encoder(features)
 
         return x
@@ -134,7 +106,7 @@ class ConvFeatureExtractionModel(nn.Module):
     """Feature Encoder."""
 
     def __init__(self, conv_layers: List[Tuple[int, int, int]]):
-        super().__init__()  # pyright: ignore [reportUnknownMemberType]
+        super().__init__()
 
         def block(
             n_in: int, n_out: int, k: int, stride: int, is_group_norm: bool = False
@@ -187,7 +159,7 @@ class TransformerEncoder(nn.Module):
         )
 
     def __init__(self, feat: int):
-        super().__init__()  # pyright: ignore [reportUnknownMemberType]
+        super().__init__()
 
         self.required_seq_len_multiple = 2
 
@@ -212,7 +184,6 @@ class TransformerEncoder(nn.Module):
 
         x = self.layer_norm(x)
 
-        # pad to the sequence length dimension
         x, pad_length = pad_to_multiple(
             x, self.required_seq_len_multiple, dim=-2, value=0
         )
@@ -224,14 +195,11 @@ class TransformerEncoder(nn.Module):
                 None, self.required_seq_len_multiple, dim=-1, value=True
             )
 
-        # :: (B, T, Feat) -> (T, B, Feat)
         x = x.transpose(0, 1)
         for layer in self.layers:
             x = layer(x, padding_mask)
-        # :: (T, B, Feat) -> (B, T, Feat)
         x = x.transpose(0, 1)
 
-        # undo paddding
         if pad_length > 0:
             x = x[:, :-pad_length]
 
@@ -242,7 +210,7 @@ class SamePad(nn.Module):
     """Tail inverse padding."""
 
     def __init__(self, kernel_size: int):
-        super().__init__()  # pyright: ignore [reportUnknownMemberType]
+        super().__init__()
         assert kernel_size % 2 == 0, "`SamePad` now support only even kernel."
 
     def forward(self, x: Tensor) -> Tensor:
@@ -279,7 +247,7 @@ class TransformerSentenceEncoderLayer(nn.Module):
         activation_dropout: float,
         layer_norm_first: bool,
     ) -> None:
-        super().__init__()  # pyright: ignore [reportUnknownMemberType]
+        super().__init__()
 
         assert layer_norm_first is False, "`layer_norm_first` is fixed to `False`"
         assert activation_fn == "gelu", "`activation_fn` is fixed to `gelu`"
@@ -298,16 +266,14 @@ class TransformerSentenceEncoderLayer(nn.Module):
         self.final_layer_norm = nn.LayerNorm(feat)
 
     def forward(self, x: Tensor, self_attn_padding_mask: Optional[Tensor]):
-        # Res[Attn-Do]-LN
         residual = x
         x = self.self_attn(x, x, x, self_attn_padding_mask)
         x = self.dropout1(x)
         x = residual + x
         x = self.self_attn_layer_norm(x)
 
-        # Res[SegFC-GELU-Do-SegFC-Do]-LN
         residual = x
-        x = F.gelu(self.fc1(x))  # pyright: ignore [reportUnknownMemberType]
+        x = F.gelu(self.fc1(x))
         x = self.dropout2(x)
         x = self.fc2(x)
         x = self.dropout3(x)
@@ -321,7 +287,7 @@ class MultiheadAttention(nn.Module):
     """Multi-headed attention."""
 
     def __init__(self, embed_dim: int, num_heads: int, dropout: float):
-        super().__init__()  # pyright: ignore [reportUnknownMemberType]
+        super().__init__()
 
         self.embed_dim, self.num_heads, self.p_dropout = embed_dim, num_heads, dropout
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=True)

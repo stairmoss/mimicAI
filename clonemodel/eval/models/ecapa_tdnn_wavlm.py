@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 import os
 
@@ -64,7 +49,6 @@ class ECAPA_TDNN_WAVLM(nn.Module):
         self.feature_weight = nn.Parameter(torch.zeros(self.feat_num))
 
         self.instance_norm = nn.InstanceNorm1d(feat_dim)
-        # self.channels = [channels] * 4 + [channels * 3]
         self.channels = [channels] * 4 + [1536]
 
         self.layer1 = Conv1dReluBn(feat_dim, self.channels[0], kernel_size=5, padding=2)
@@ -99,7 +83,6 @@ class ECAPA_TDNN_WAVLM(nn.Module):
             se_bottleneck_dim=128,
         )
 
-        # self.conv = nn.Conv1d(self.channels[-1], self.channels[-1], kernel_size=1)
         cat_channels = channels * 3
         self.conv = nn.Conv1d(cat_channels, self.channels[-1], kernel_size=1)
         self.pooling = AttentiveStatsPool(
@@ -158,7 +141,6 @@ class ECAPA_TDNN_WAVLM(nn.Module):
         return out
 
 
-# part of the code is borrowed from https://github.com/lawlict/ECAPA-TDNN
 
 """ Res2Conv1d + BatchNorm1d + ReLU
 """
@@ -211,7 +193,6 @@ class Res2Conv1dReluBn(nn.Module):
                 sp = spx[i]
             else:
                 sp = sp + spx[i]
-            # Order: conv -> relu -> bn
             sp = self.convs[i](sp)
             sp = self.bns[i](F.relu(sp))
             out.append(sp)
@@ -276,13 +257,6 @@ class SE_Connect(nn.Module):
 """
 
 
-# def SE_Res2Block(channels, kernel_size, stride, padding, dilation, scale):
-#     return nn.Sequential(
-#         Conv1dReluBn(channels, 512, kernel_size=1, stride=1, padding=0),
-#         Res2Conv1dReluBn(512, kernel_size, stride, padding, dilation, scale=scale),
-#         Conv1dReluBn(512, channels, kernel_size=1, stride=1, padding=0),
-#         SE_Connect(channels)
-#     )
 
 
 class SE_Res2Block(nn.Module):
@@ -339,19 +313,17 @@ class AttentiveStatsPool(nn.Module):
         super().__init__()
         self.global_context_att = global_context_att
 
-        # Use Conv1d with stride == 1 rather than Linear,
-        #  then we don't need to transpose inputs.
         if global_context_att:
             self.linear1 = nn.Conv1d(
                 in_dim * 3, attention_channels, kernel_size=1
-            )  # equals W and b in the paper
+            )
         else:
             self.linear1 = nn.Conv1d(
                 in_dim, attention_channels, kernel_size=1
-            )  # equals W and b in the paper
+            )
         self.linear2 = nn.Conv1d(
             attention_channels, in_dim, kernel_size=1
-        )  # equals V and k in the paper
+        )
 
     def forward(self, x):
 
@@ -364,9 +336,7 @@ class AttentiveStatsPool(nn.Module):
         else:
             x_in = x
 
-        # DON'T use ReLU here! In experiments, I find ReLU hard to converge.
         alpha = torch.tanh(self.linear1(x_in))
-        # alpha = F.relu(self.linear1(x_in))
         alpha = torch.softmax(self.linear2(alpha), dim=2)
         mean = torch.sum(alpha * x, dim=2)
         residuals = torch.sum(alpha * (x**2), dim=2) - mean**2

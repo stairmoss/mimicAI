@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
 
 """
 This module contains the text normalization function for WER evaluation. 
@@ -17,7 +12,7 @@ from unidecode import unidecode
 
 import omnivoice.eval.wer.norm_config_module as norm_config_module
 
-norm_config = norm_config_module.norm_config  # type: ignore
+norm_config = norm_config_module.norm_config
 
 
 def text_normalize(
@@ -50,24 +45,19 @@ def text_normalize(
 
     text = unicodedata.normalize(config["unicode_norm"], text)
 
-    # Convert to lower case
 
     if config["lower_case"] and lower_case:
         text = text.lower()
 
-    # brackets
 
-    # always text inside brackets with numbers in them. Usually corresponds to "(Sam 23:17)"
     text = re.sub(r"\([^\)]*\d[^\)]*\)", " ", text)
     if remove_brackets:
         text = re.sub(r"\([^\)]*\)", " ", text)
 
-    # Apply mappings
 
     for old, new in config["mapping"].items():
         text = re.sub(old, new, text)
 
-    # Replace punctutations with space
 
     punct_pattern = r"[" + config["punc_set"]
 
@@ -75,16 +65,11 @@ def text_normalize(
 
     normalized_text = re.sub(punct_pattern, " ", text)
 
-    # remove characters in delete list
 
     delete_patten = r"[" + config["del_set"] + "]"
 
     normalized_text = re.sub(delete_patten, "", normalized_text)
 
-    # Remove words containing only digits
-    # We check for 3 cases  a)text starts with a number b) a number is present somewhere in the middle of the text c) the text ends with a number
-    # For each case we use lookaround regex pattern to see if the digit pattern in preceded and followed by whitespaces, only then we replace the numbers with space
-    # The lookaround enables overlapping pattern matches to be replaced
 
     if remove_numbers:
 
@@ -107,7 +92,6 @@ def text_normalize(
     if config["rm_diacritics"]:
         normalized_text = unidecode(normalized_text)
 
-    # Remove extra spaces
     normalized_text = re.sub(r"\s+", " ", normalized_text).strip()
 
     return normalized_text

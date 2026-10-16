@@ -30,7 +30,6 @@ def _get_converter():
             pkg_dir = os.path.dirname(os.path.realpath(__import__("openvoice_cli").__file__))
             ckpt_dir = os.path.join(pkg_dir, "checkpoints", "converter")
 
-            # download openvoice checkpoint on first run if user doesn't have it
             if not os.path.exists(os.path.join(ckpt_dir, "checkpoint.pth")):
                 os.makedirs(ckpt_dir, exist_ok=True)
                 download_checkpoint(ckpt_dir)
@@ -192,7 +191,6 @@ def _generate_base_tts(text: str, language: str, piper_model_path: Optional[str]
         voice_name, kokoro_lang, has_kokoro = "zf_xiaobei", "zh", True
 
     try:
-        # 1. Custom fine-tuned Piper model if specified
         if piper_model_path and os.path.exists(piper_model_path):
             try:
                 import piper_tts as pt
@@ -208,7 +206,6 @@ def _generate_base_tts(text: str, language: str, piper_model_path: Optional[str]
             except Exception as exc:
                 logger.warning(f"Custom Piper error: {exc}, trying fallbacks")
 
-        # 2. Kokoro TTS
         if has_kokoro:
             try:
                 kokoro = _get_kokoro()
@@ -220,7 +217,6 @@ def _generate_base_tts(text: str, language: str, piper_model_path: Optional[str]
                     samples, sr = kokoro.create(text[:500], voice=voice_name, speed=1.0, lang=kokoro_lang)
 
                     if samples is not None and len(samples) > 0:
-                        # OpenVoice tone converter requires 22050 Hz
                         if sr != 22050:
                             samples = librosa.resample(samples, orig_sr=sr, target_sr=22050)
                             sr = 22050
@@ -230,7 +226,6 @@ def _generate_base_tts(text: str, language: str, piper_model_path: Optional[str]
             except Exception as exc:
                 logger.warning(f"Kokoro base TTS failed: {exc}")
 
-        # 3. Default Piper model
         try:
             import piper_tts as pt
             if pt.is_available():
@@ -241,7 +236,6 @@ def _generate_base_tts(text: str, language: str, piper_model_path: Optional[str]
         except Exception as exc:
             logger.warning(f"Piper base TTS fallback failed: {exc}")
 
-        # 4. Kokoro backup if piper failed
         if not has_kokoro:
             try:
                 kokoro = _get_kokoro()
@@ -282,7 +276,7 @@ def is_available(model_path: Optional[str] = None) -> bool:
     except ImportError:
         pass
     try:
-        import openvoice_cli  # noqa: F401
+        import openvoice_cli
         return True
     except ImportError:
         return False

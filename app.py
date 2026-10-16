@@ -214,7 +214,6 @@ def chat():
                     content = delta.get("content")
                     if not content:
                         continue
-                    # upstream occasionally sends double-encoded utf-8 bytes
                     try:
                         content = content.encode("latin-1").decode("utf-8")
                     except (UnicodeDecodeError, UnicodeEncodeError):
@@ -484,7 +483,7 @@ def get_status():
         status["piper"] = {"available": False, "loaded": False}
 
     try:
-        import kokoro_onnx  # noqa: F401
+        import kokoro_onnx
         m_path = "/mnt/18A660FBA660DB30/voiceclone_AI/mimicAI/kokoro_models/kokoro-v1.0.int8.onnx"
         v_path = "/mnt/18A660FBA660DB30/voiceclone_AI/mimicAI/kokoro_models/voices-v1.0.bin"
         from clone_engine import _kokoro_model
@@ -505,7 +504,7 @@ def get_status():
         status["openvoice"] = {"available": False, "loaded": False}
 
     try:
-        from clonemodel import MimicVoice  # noqa: F401
+        from clonemodel import MimicVoice
         from voice_manager import _MimicAI_full_model
         status["mimicvoice"] = {
             "available": True,
@@ -515,7 +514,7 @@ def get_status():
         status["mimicvoice"] = {"available": False, "loaded": False}
 
     try:
-        from clonemodel.lite.mimicvoice_lite import MimicVoiceLite  # noqa: F401
+        from clonemodel.lite.mimicvoice_lite import MimicVoiceLite
         from voice_manager import _MimicAI_model
         status["mimicvoice_lite"] = {
             "available": True,

@@ -53,7 +53,6 @@ def _load_model(model_path: str):
             return None
 
 
-# TODO: refactor abbreviation list into a json config later
 abbrevs = [
     (re.compile(r'\bDr\.', re.I), "Doctor"),
     (re.compile(r'\bMr\.', re.I), "Mister"),
@@ -100,7 +99,6 @@ def normalize_text(text: str) -> str:
     text = unicodedata.normalize("NFC", text)
     text = "".join(ch for ch in text if unicodedata.category(ch)[0] != "C" or ch in ("\n", "\t"))
 
-    # strip emoji ranges espeak cannot phonemize
     text = re.sub(
         r'[\U0001F300-\U0001FFFF\U00002702-\U000027B0\U0000FE00-\U0000FE0F\U0001F1E0-\U0001F1FF]',
         '', text, flags=re.UNICODE
@@ -156,7 +154,6 @@ def preprocess_reference_audio(wav_path: str, target_dbfs: float = -20.0) -> str
         gain = target_dbfs - audio.dBFS
         audio = audio.apply_gain(gain)
 
-        # trim leading/trailing quiet spaces
         chunks = split_on_silence(
             audio,
             min_silence_len=300,
@@ -225,7 +222,6 @@ def synthesize(
             wf.setsampwidth(2)
             wf.setframerate(voice.config.sample_rate)
 
-            # piper has better prosody with sentence chunks
             for sent in split_text(clean_text):
                 for chunk in voice.synthesize(sent, syn_config=cfg):
                     wf.writeframes(chunk.audio_int16_bytes)
@@ -264,7 +260,7 @@ def synthesize_to_file(
 
 def is_available(model_path: Optional[str] = None) -> bool:
     try:
-        import piper  # noqa: F401
+        import piper
         target = Path(model_path) if model_path else _find_default_model()
         if target is None:
             return False

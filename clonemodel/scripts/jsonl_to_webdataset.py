@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """
 Pack a JSONL audio dataset into a customed WebDataset shards
@@ -234,7 +219,6 @@ def process_single_shard(
                 sample, meta = result["ok"]
                 dur = meta.get("audio_duration", 0.0)
 
-                # Duration filtering (based on actual audio_duration computed above)
                 if min_duration is not None and dur < min_duration:
                     filtered_count += 1
                     continue
@@ -249,7 +233,6 @@ def process_single_shard(
                 total_duration += dur
                 processed_count += 1
 
-    # Clean up empty shard files
     if processed_count == 0:
         for p in (tar_fname, jsonl_fname):
             if os.path.exists(p):
@@ -294,7 +277,6 @@ def pack_dataset(
 
     error_log_path = str(output_dir / "errors.jsonl")
 
-    # Setup error logger
     error_logger = logging.getLogger("error_log")
     error_logger.setLevel(logging.ERROR)
     error_logger.handlers.clear()
@@ -381,7 +363,6 @@ def pack_dataset(
                     total_errors += e_count
                     total_filtered += f_count
 
-                    # Write error log
                     for err in errors:
                         err["shard_idx"] = s_idx
                         error_logger.error(json.dumps(err, ensure_ascii=False))
@@ -411,7 +392,6 @@ def pack_dataset(
 
         pbar.close()
 
-    # Write final manifest file (data.lst)
     manifest_path = str(output_dir / "data.lst")
     with open(manifest_path, "w", encoding="utf-8") as mf:
         for idx in sorted(shard_manifest.keys()):

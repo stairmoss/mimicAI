@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Batching strategies for streaming/iterable datasets.
 
@@ -106,7 +91,6 @@ class StreamLengthGroupDataset(WrappedIterableDataset):
                 duration = audio.size(-1) / self.dataset.sample_rate
 
             if duration < self.min_length or duration > self.max_length:
-                # logging.warning(f"Skipping sample with duration {duration:.2f}s")
                 continue
 
             b_id = self._get_bucket_id(duration)
@@ -163,7 +147,6 @@ class PackingIterableDataset(WrappedIterableDataset):
         current_token_count = 0
 
         for raw_sample in self.dataset:
-            # Process the sample using the processor
             try:
                 processed_sample = self.processor(raw_sample)
             except Exception as e:
@@ -175,17 +158,13 @@ class PackingIterableDataset(WrappedIterableDataset):
             if sample_length > self.batch_tokens:
                 continue
 
-            # Check if adding this sample exceeds the batch token limit
             if current_token_count + sample_length > self.batch_tokens:
-                # Yield the current batch and start a new one
                 yield current_batch
                 current_batch = []
                 current_token_count = 0
 
-            # Add the processed sample to the current batch
             current_batch.append(processed_sample)
             current_token_count += sample_length
 
-        # Yield the last batch if it's not empty
         if current_batch:
             yield current_batch

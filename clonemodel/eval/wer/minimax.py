@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """
 Computes word error rate (WER) with Whisper-large-v3 for English and
@@ -39,7 +24,6 @@ from omnivoice.eval.wer.common import log_metrics, process_one
 from omnivoice.eval.wer.text_norm_omni import text_normalize
 from omnivoice.utils.data_utils import read_test_list
 
-# --- Global variables for worker processes ---
 worker_pipe = None
 worker_paraformer = None
 worker_device = None
@@ -49,7 +33,7 @@ def read_language_mapping_from_tsv(
     mapping_path: Path,
 ) -> dict[str, Union[str, List[str]]]:
     with open(mapping_path, "r", encoding="utf-8") as f:
-        _ = f.readline()  # Skip header
+        _ = f.readline()
         language_mapping = {}
         for line in f:
             parts = line.strip().split("\t")
@@ -139,7 +123,6 @@ def load_whisper_model(model_dir, device):
 
     import transformers
 
-    # Suppress transformers logging
     transformers.logging.set_verbosity_error()
 
     logging.info(f"Loading Whisper model on {device}...")
@@ -252,14 +235,10 @@ def post_process(text: str, lang: str) -> str:
     if lang in ["zh", "yue"]:
         text = zhconv.convert(text, "zh-cn")
 
-    # Processing spaces for languages using CER (consistent with the practice
-    # in paper Minimax-Speech), specifically: zh, yue, ja, ko, th, arb, vi, hi, el.
     if lang in ("zh", "yue", "ja"):
-        # For languages where spaces are not semantically meaningful, remove spaces.
         text = text.replace(" ", "")
         text = " ".join([x for x in text])
     elif lang in ("ko", "th", "arb", "vi", "hi", "el"):
-        # For languages where spaces are semantically meaningful, replace spaces with |.
         text = text.replace(" ", "|")
         text = " ".join([x for x in text])
     text = text.lower()
@@ -301,8 +280,6 @@ def run_eval_worker(data_chunk, language, batch_size):
         else:
             generate_kwargs = {"task": "transcribe"}
 
-        # Use the pipeline to infer batch
-        # Note: We iterate through the iterator returned by pipe
         iterator = worker_pipe(
             dataset, generate_kwargs=generate_kwargs, batch_size=batch_size
         )
@@ -379,7 +356,6 @@ def main():
         force=True,
     )
 
-    # 1. Prepare Data
     logging.info("Reading test list...")
     data_by_lang = defaultdict(list)
     total_files = 0
@@ -409,7 +385,6 @@ def main():
 
     logging.info(f"Total files: {total_files} in {len(data_by_lang)} languages.")
 
-    # 2. Worker config
     num_gpus = torch.cuda.device_count()
     assert num_gpus > 0, "No GPU found. GPU is required."
     total_workers = num_gpus * args.nj_per_gpu
@@ -417,7 +392,6 @@ def main():
     mp.set_start_method("spawn", force=True)
     manager = mp.Manager()
 
-    # 3. Scheduling: Split data into Chinese (Paraformer) and non-Chinese (Whisper)
     zh_items = []
     non_zh_items = []
     for lang_name, items in data_by_lang.items():
@@ -445,10 +419,8 @@ def main():
         f"Spawning {total_workers} workers per pool."
     )
 
-    # 4. Execution — run Whisper and Paraformer pools sequentially
     results = []
 
-    # 4a. Whisper pool for non-Chinese languages
     if whisper_tasks:
         whisper_rank_queue = manager.Queue()
         for _ in range(args.nj_per_gpu):
@@ -482,7 +454,6 @@ def main():
                     except Exception as e:
                         logging.error(f"Whisper task failed: {e}")
 
-    # 4b. Paraformer pool for Chinese
     if paraformer_tasks:
         para_rank_queue = manager.Queue()
         for _ in range(args.nj_per_gpu):
@@ -514,11 +485,9 @@ def main():
                     except Exception as e:
                         logging.error(f"Paraformer task failed: {e}")
 
-    # 5. Metrics Aggregation
     wers, inses, deles, subses = [], [], [], []
     word_nums = 0
 
-    # Store metrics per language
     lang_stats = {}
 
     fout = None
@@ -542,7 +511,6 @@ def main():
             )
         lang_name = res["lang_name"]
 
-        # Per language stats
         if lang_name not in lang_stats:
             lang_stats[lang_name] = {
                 "inses": [],
@@ -556,7 +524,6 @@ def main():
         lang_stats[lang_name]["word_nums"] += res["word_num"]
 
     print("-" * 50)
-    # Log per-language stats
     per_lang_wers = []
     for lang in sorted(lang_stats.keys()):
         stats = lang_stats[lang]
@@ -573,7 +540,6 @@ def main():
             per_lang_wers.append(lang_wer)
             print("-" * 50)
 
-    # Log Macro-average WER
     if len(per_lang_wers) > 1:
         macro_wer = np.mean(per_lang_wers)
         logging.info(
@@ -584,7 +550,6 @@ def main():
                 f"Macro-average WER over {len(per_lang_wers)} languages: {macro_wer:.2f}%\n"
             )
 
-    # Log overall stats
     if word_nums > 0:
         log_metrics(fout, "Overall", inses, deles, subses, word_nums)
 

@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Dataset and data-loading utilities for training and evaluation.
 
@@ -139,7 +124,6 @@ def prepare_data_manifests_from_json(
             manifest_paths = item["manifest_path"]
             repeat = item.get("repeat", 1)
             for manifest_path in manifest_paths:
-                # assert manifest_path is a file
                 assert os.path.isfile(manifest_path), f"{manifest_path} is not a file."
                 train_manifests.extend(
                     webdataset_manifest_reader(manifest_path) * repeat
@@ -233,7 +217,6 @@ class SampleDecoder:
         else:
             for ext in self.audio_format:
                 if ext in sample:
-                    # load audio (1, num_samples)
                     audio = load_audio_webdataset(
                         sample[ext], sample_rate=self.sample_rate
                     )
@@ -407,13 +390,11 @@ class JsonlDatasetReader(IterableDataReader):
     def __iter__(self):
         source = self._read_lines() if self.shuffle else self._stream_lines()
 
-        # Split data across distributed ranks (multi-GPU / DDP)
         if dist.is_initialized():
             rank = dist.get_rank()
             world_size = dist.get_world_size()
             source = [item for i, item in enumerate(source) if i % world_size == rank]
 
-        # Split data across DataLoader workers to avoid duplication
         worker_info = torch.utils.data.get_worker_info()
         if worker_info is not None:
             source = (

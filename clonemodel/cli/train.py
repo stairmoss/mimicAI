@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Training CLI for MimicVoice.
 
@@ -50,16 +35,13 @@ def main():
     )
     args = parser.parse_args()
 
-    # 1. Load Configuration
     config = TrainingConfig.from_json(args.train_config)
     config.output_dir = args.output_dir
     config.data_config = args.data_config
 
-    # 2. Build Components
     model, tokenizer = build_model_and_tokenizer(config)
     train_loader, eval_loader = build_dataloaders(config, tokenizer)
 
-    # 3. Initialize Trainer and Start
     trainer = OmniTrainer(
         model=model,
         config=config,

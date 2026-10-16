@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Training sample processor for MimicVoice.
 
@@ -65,10 +50,6 @@ class MimicVoiceSampleProcessor:
 
     def __call__(self, sample: Dict[str, Any]) -> Dict[str, Any]:
 
-        # clean_start_token_idx is only used for prompt denoising training,
-        # where the prompt region is augmented with noises and the model
-        # needs to learn to recover the clean prompt.
-        # clean_start_token_idx indicates the start index of the clean generated token.
         if "clean_start_token_idx" in sample["label"]:
             drop_cond = False
         else:
@@ -89,7 +70,6 @@ class MimicVoiceSampleProcessor:
 
         mask_ratio = random.uniform(*self.mask_ratio_range)
 
-        # --- Style ---
         style = ""
         if use_language:
             language = sample["label"].get("language_id", "None")
@@ -111,9 +91,8 @@ class MimicVoiceSampleProcessor:
         )
         style_labels = torch.full(
             style_inputs.shape, -100
-        )  # Style prompt does not compute loss
+        )
 
-        # --- Text ---
         if (
             "text_pinyin" in sample["label"]
             and random.uniform(0, 1) < self.use_pinyin_ratio
@@ -124,12 +103,10 @@ class MimicVoiceSampleProcessor:
         text_inputs = self.text_tokenizer(
             f"<|text_start|>{text}<|text_end|>", return_tensors="pt"
         ).input_ids.repeat(self.num_channels, 1)
-        text_labels = torch.full(text_inputs.shape, -100)  # Text does not compute loss
+        text_labels = torch.full(text_inputs.shape, -100)
 
-        # --- Audio ---
         audio_tokens = sample["audio_tokens"].long()
 
-        # Masking Logic
         if "clean_start_token_idx" in sample["label"]:
             prompt_length = sample["label"]["clean_start_token_idx"]
         else:
@@ -138,17 +115,15 @@ class MimicVoiceSampleProcessor:
         audio_inputs = audio_tokens.clone()
         audio_labels = audio_tokens.clone()
 
-        # Apply masking
         maskable_region = audio_tokens[:, prompt_length:]
         token_mask = torch.rand(maskable_region.shape) < mask_ratio
         audio_inputs[:, prompt_length:][token_mask] = self.audio_mask_id
         audio_labels[:, prompt_length:][
             ~token_mask
-        ] = -100  # Only compute loss on masked tokens
+        ] = -100
         if not drop_cond:
-            audio_labels[:, :prompt_length] = -100  # No loss on prompt region
+            audio_labels[:, :prompt_length] = -100
 
-        # --- Concatenation ---
         if drop_text:
             input_ids = audio_inputs
             labels = audio_labels
@@ -163,9 +138,9 @@ class MimicVoiceSampleProcessor:
             audio_mask[audio_start_idx:] = True
 
         return_dict = {
-            "input_ids": input_ids,  # [C, L]
-            "labels": labels,  # [C, L]
-            "audio_mask": audio_mask,  # [L]
+            "input_ids": input_ids,
+            "labels": labels,
+            "audio_mask": audio_mask,
             "length": total_length,
         }
 
@@ -207,34 +182,28 @@ class MimicVoiceSimpleSampleProcessor:
         else:
             prompt_ratio = random.uniform(*self.prompt_ratio_range)
 
-        # --- Text ---
         text = sample["label"]["text"]
         text_inputs = self.text_tokenizer(
             f"<|text_start|>{text}<|text_end|>", return_tensors="pt"
         ).input_ids.repeat(self.num_channels, 1)
-        text_labels = torch.full(text_inputs.shape, -100)  # Text does not compute loss
+        text_labels = torch.full(text_inputs.shape, -100)
 
-        # --- Audio ---
         audio_tokens = sample["audio_tokens"].long()
 
-        # Masking Logic
         prompt_length = int(audio_tokens.shape[1] * prompt_ratio)
         audio_inputs = audio_tokens.clone()
         audio_labels = audio_tokens.clone()
 
-        # Apply masking
         maskable_region = audio_tokens[:, prompt_length:]
         token_mask = torch.rand(maskable_region.shape) < mask_ratio
         audio_inputs[:, prompt_length:][token_mask] = self.audio_mask_id
         audio_labels[:, prompt_length:][
             ~token_mask
-        ] = -100  # Only compute loss on masked tokens
+        ] = -100
 
         if not drop_cond:
-            # No loss on prompt region
             audio_labels[:, :prompt_length] = -100
 
-        # --- Concatenation ---
         if drop_cond:
             input_ids = audio_inputs
             labels = audio_labels
@@ -249,9 +218,9 @@ class MimicVoiceSimpleSampleProcessor:
             audio_mask[audio_start_idx:] = True
 
         return_dict = {
-            "input_ids": input_ids,  # [C, L]
-            "labels": labels,  # [C, L]
-            "audio_mask": audio_mask,  # [L]
+            "input_ids": input_ids,
+            "labels": labels,
+            "audio_mask": audio_mask,
             "length": total_length,
         }
 

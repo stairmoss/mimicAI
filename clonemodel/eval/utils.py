@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 import logging
 from typing import Optional
@@ -53,21 +38,17 @@ def load_eval_waveform(
         - If the audio is stereo, it will be converted to mono by averaging channels.
         - If the audio's sample rate differs from the target, it will be resampled.
     """
-    # Load audio file with specified data type
     wav_data, sr = sf.read(fname, dtype=dtype)
 
-    # Convert stereo to mono if necessary
     if len(wav_data.shape) == 2:
         wav_data = wav_data.mean(1)
 
-    # Resample to target sample rate if needed
     if sr != sample_rate:
         wav_data = torchaudio.functional.resample(
             torch.from_numpy(wav_data), orig_freq=sr, new_freq=sample_rate
         ).numpy()
 
     if max_seconds is not None:
-        # Trim to max length
         max_length = int(sample_rate * max_seconds)
         if len(wav_data) > max_length:
             wav_data = wav_data[:max_length]

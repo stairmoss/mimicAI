@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Batch inference CLI for MimicVoice.
 
@@ -243,7 +228,7 @@ def process_init(rank_queue, model_checkpoint, warmup=0):
         dummy_ref_audio = (
             torch.randn(1, SAMPLING_RATE),
             SAMPLING_RATE,
-        )  # 1s dummy audio
+        )
         for i in range(warmup):
             worker_model.generate(
                 text=["hello"],
@@ -467,10 +452,6 @@ def main():
 
             logging.info("Running batch inference")
 
-            # Split samples by mode (voice-clone vs non-voice-clone) before
-            # clustering so that each batch is homogeneous.  Mixing ref_audio
-            # and non-ref_audio samples in the same batch would crash in
-            # generate() → create_voice_clone_prompt().
             clone_samples = [s for s in samples if s[2] is not None]
             other_samples = [s for s in samples if s[2] is None]
 

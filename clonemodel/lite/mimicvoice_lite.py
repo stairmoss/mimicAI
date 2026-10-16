@@ -186,7 +186,7 @@ class MimicVoiceLite:
     def _load_ref_audio(self, ref_audio):
         if isinstance(ref_audio, str):
             import soundfile as sf
-            audio, sr = sf.read(ref_audio, dtype='float32')  # Load as float32
+            audio, sr = sf.read(ref_audio, dtype='float32')
             if sr != self.sampling_rate:
                 import torchaudio
                 audio_t = torch.from_numpy(audio).float()
@@ -227,7 +227,6 @@ class MimicVoiceLite:
         if speed and speed > 0 and speed != 1.0:
             target_len = max(1, int(target_len / speed))
 
-        # The Lite app runs on CPU, so keep cloned replies responsive.
         target_len = min(target_len, 48)
 
         style_text = ""
@@ -262,16 +261,13 @@ class MimicVoiceLite:
             cond_ids, cond_audio_mask = self._build_cond_input(input_data, tokens)
             hidden_cond = self._run_llm_forward(cond_ids, cond_audio_mask)
 
-            # --- FIX: Build unconditional input with style, text, and audio tokens (no ref audio) ---
             style_ids = input_data["style_ids"]
             text_ids = input_data["text_ids"]
             style_cb = style_ids.repeat(1, C).view(1, C, -1)
             text_cb = text_ids.repeat(1, C).view(1, C, -1)
-            # Unconditional input: [style, text, current_tokens]
             uncond_parts = [style_cb, text_cb, tokens]
             uncond_ids = torch.cat(uncond_parts, dim=2)
             uncond_seq_len = uncond_ids.shape[2]
-            # Only the audio portion is marked True in the mask
             uncond_audio_mask = torch.zeros(1, uncond_seq_len, dtype=torch.bool, device=self.device)
             uncond_audio_mask[0, -target_len:] = True
 
@@ -365,7 +361,6 @@ class MimicVoiceLite:
         if text_embed_w is None:
             raise RuntimeError("Cannot find text embedding weight")
 
-        # Validate text embedding weight shape
         logger.debug(f"text_embed_w shape: {text_embed_w.shape}, expected (vocab_size, embed_dim)")
         if text_embed_w.shape[0] < text_embed_w.shape[1]:
             logger.warning(f"text_embed_w might be transposed! Shape {text_embed_w.shape} looks like (embed_dim, vocab_size)")
@@ -392,7 +387,6 @@ class MimicVoiceLite:
             shifted = (input_ids * audio_mask.unsqueeze(1)) + offsets
             shifted = shifted.clamp(0, audio_embed_w.shape[0] - 1)
 
-            # Log shapes for debugging
             try:
                 audio_embed_raw = F.embedding(shifted, audio_embed_w)
                 logger.debug(f"audio_embed_raw shape: {audio_embed_raw.shape}, expected (batch, C, seq_len, embed_dim)")
@@ -401,10 +395,8 @@ class MimicVoiceLite:
                 logger.debug(f"text_embeds shape: {text_embeds.shape}")
                 logger.debug(f"audio_mask shape: {audio_mask.shape}, audio_mask.unsqueeze(-1): {audio_mask.unsqueeze(-1).shape}")
 
-                # Validate shapes match before torch.where
                 if audio_embeds.shape != text_embeds.shape:
                     logger.error(f"Shape mismatch: audio_embeds {audio_embeds.shape} != text_embeds {text_embeds.shape}")
-                    # Try to fix by reshaping
                     if audio_embeds.shape[:-1] == text_embeds.shape[:-1]:
                         logger.info(f"Attempting to align embedding dimensions...")
                         min_dim = min(audio_embeds.shape[-1], text_embeds.shape[-1])
@@ -451,7 +443,6 @@ class MimicVoiceLite:
             logger.error(f"F.linear error: {e}")
             logger.error(f"target_hidden shape: {target_hidden.shape}")
             logger.error(f"head_w shape: {head_w.shape}")
-            # Try to provide more context and fallback reshape
             if target_hidden.dim() > 3:
                 logger.error(f"target_hidden is {target_hidden.dim()}D, should be 3D (batch, seq, hidden)")
                 target_hidden = target_hidden.reshape(target_hidden.size(0), -1, target_hidden.size(-1))

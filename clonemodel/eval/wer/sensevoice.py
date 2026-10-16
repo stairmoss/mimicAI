@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """
 Computes Character Error Rate (CER) for Cantonese (yue) using SenseVoiceSmall.
@@ -37,7 +22,6 @@ from omnivoice.eval.wer.common import log_metrics, process_one
 from omnivoice.eval.wer.text_norm_omni import text_normalize
 from omnivoice.utils.data_utils import read_test_list
 
-# --- Global variables for worker processes ---
 worker_sensevoice = None
 worker_device = None
 
@@ -101,7 +85,6 @@ def get_parser():
 def load_sensevoice_model(model_dir, device):
     model_path = os.path.join(model_dir, "wer/SenseVoiceSmall")
     if not os.path.exists(model_path):
-        # Fallback if specific sensevoice spelling isn't found
         logging.warning(
             f"SenseVoiceSmall not found at {model_path}. "
             f"Please ensure it is present in eval models."
@@ -195,7 +178,6 @@ def run_eval_worker_sensevoice(data_chunk, batch_size):
         for i in range(0, len(wav_paths), batch_size):
             batch_paths = wav_paths[i : i + batch_size]
 
-            # SenseVoice generate call, target lang mapped to yue
             res_batch = worker_sensevoice.generate(
                 input=batch_paths,
                 batch_size=batch_size,
@@ -206,8 +188,6 @@ def run_eval_worker_sensevoice(data_chunk, batch_size):
 
             for j, res in enumerate(res_batch):
                 hypothesis = res["text"]
-                # SenseVoice may format output with language tags,
-                # cleaning basic tags if any
                 hypothesis = re.sub(r"<\|[^|]*\|>", "", hypothesis).strip()
 
                 ref_item = data_chunk[i + j]
@@ -309,7 +289,6 @@ def main():
                 except Exception as e:
                     logging.error(f"Task failed: {e}")
 
-    # Metrics Aggregation
     inses, deles, subses = [], [], []
     word_nums = 0
 

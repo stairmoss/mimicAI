@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Text processing utilities for TTS inference.
 
@@ -126,26 +111,21 @@ def chunk_text_punctuation(
     avoiding splits on common abbreviations (e.g., Mr., No.).
     """
 
-    # 1. Split the tokens according to punctuations.
     sentences = []
     current_sentence = []
 
     tokens_list = list(text)
 
     for token in tokens_list:
-        # If the first token of current sentence is punctuation,
-        # append it to the end of the previous sentence.
         if (
             len(current_sentence) == 0
             and len(sentences) != 0
             and (token in SPLIT_PUNCTUATION or token in CLOSING_MARKS)
         ):
             sentences[-1].append(token)
-        # Otherwise, append the current token to the current sentence.
         else:
             current_sentence.append(token)
 
-            # Split the sentence in positions of punctuations.
             if token in SPLIT_PUNCTUATION:
                 is_abbreviation = False
 
@@ -159,11 +139,9 @@ def chunk_text_punctuation(
                 if not is_abbreviation:
                     sentences.append(current_sentence)
                     current_sentence = []
-    # Assume the last few tokens are also a sentence
     if len(current_sentence) != 0:
         sentences.append(current_sentence)
 
-    # 2. Merge short sentences.
     merged_chunks = []
     current_chunk = []
     for sentence in sentences:
@@ -177,8 +155,6 @@ def chunk_text_punctuation(
     if len(current_chunk) > 0:
         merged_chunks.append(current_chunk)
 
-    # 4. Post-process: Check for undersized chunks and merge them
-    #  with the previous chunk or next chunk (if it's the first chunk).
     if min_chunk_len is not None:
         first_chunk_short_flag = (
             len(merged_chunks) > 0 and len(merged_chunks[0]) < min_chunk_len

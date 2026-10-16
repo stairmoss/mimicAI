@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Denoise audio with Sidon and pack results into WebDataset shards.
 
@@ -83,7 +68,6 @@ SIDON_OUTPUT_SAMPLE_RATE = 48_000
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
 
-    # ── Input (mutually exclusive) ──
     parser.add_argument(
         "--input_manifest",
         default=None,
@@ -96,7 +80,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Raw JSONL file. Each line: " '{"id": "...", "audio_path": "...", ...}',
     )
 
-    # ── Output ──
     parser.add_argument(
         "--tar_output_pattern",
         default=None,
@@ -114,7 +97,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum records per output shard",
     )
 
-    # ── Model ──
     parser.add_argument(
         "--feature_extractor_path",
         default=None,
@@ -132,7 +114,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Sample rate of the denoised output audio",
     )
 
-    # ── Filtering ──
     parser.add_argument(
         "--min_length",
         type=float,
@@ -146,7 +127,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum audio duration in seconds",
     )
 
-    # ── Batching ──
     parser.add_argument(
         "--batch_duration",
         type=float,
@@ -160,7 +140,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum samples per batch for dynamic batching",
     )
 
-    # ── Distributed ──
     parser.add_argument(
         "--num_machines",
         type=int,
@@ -175,7 +154,6 @@ def build_parser() -> argparse.ArgumentParser:
         "machines (e.g. 0, 1, ... num_machines-1)",
     )
 
-    # ── Parallelism ──
     parser.add_argument(
         "--nj_per_gpu",
         type=int,
@@ -189,7 +167,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="PyTorch DataLoader worker threads",
     )
 
-    # ── Data order (JSONL mode) ──
     parser.add_argument(
         "--shuffle",
         type=str2bool,
@@ -203,7 +180,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Seed for JSONL shuffle",
     )
 
-    # ── Error handling ──
     parser.add_argument(
         "--skip_errors",
         action="store_true",
@@ -357,7 +333,7 @@ def extract_seamless_m4t_features(
 
     if return_tensors == "np":
         for key, value in output.items():
-            output[key] = value.cpu().numpy()  # type: ignore[assignment]
+            output[key] = value.cpu().numpy()
 
     return output
 
@@ -366,7 +342,7 @@ def serialise_flac(key: str, waveform: torch.Tensor, sample_rate: int) -> dict:
     buffer = io.BytesIO()
     audio = waveform.to(dtype=torch.float32).cpu().numpy()
     if audio.ndim == 2:
-        audio = audio.T  # (C, T) → (T, C) for soundfile
+        audio = audio.T
     sf.write(buffer, audio, sample_rate, format="FLAC")
     return {"__key__": key, "flac": buffer.getvalue()}
 
@@ -393,9 +369,6 @@ def _encode_metadata(metadata: dict[str, Any]) -> bytes:
     return json.dumps(cleaned, ensure_ascii=False).encode("utf-8")
 
 
-# ---------------------------------------------------------------------------
-# Denoising model
-# ---------------------------------------------------------------------------
 
 
 class SpeechDenoisingProcessor:
@@ -464,9 +437,6 @@ class SpeechDenoisingProcessor:
         return results
 
 
-# ---------------------------------------------------------------------------
-# Batch collation
-# ---------------------------------------------------------------------------
 
 
 class CollateFunction:
@@ -512,20 +482,6 @@ class CollatedBatch:
         return len(self.keys)
 
 
-# ---------------------------------------------------------------------------
-# Subprocess-based GPU worker pool
-# ---------------------------------------------------------------------------
-#
-# Problem: PyTorch ≥2.8 caches CUDA device state at import time.  Neither
-# forkserver nor spawn lets us change CUDA_VISIBLE_DEVICES *before* the CUDA
-# runtime captures the device list.  The only reliable approach is to launch
-# each worker as a **subprocess** with CUDA_VISIBLE_DEVICES set in the
-# subprocess environment, guaranteeing it takes effect before `import torch`.
-#
-# Protocol (parent ↔ child, length-prefixed pickle over stdin/stdout):
-#   Parent → child:  4-byte LE uint32 length  +  pickle(CollatedBatch)
-#   Child  → parent: 4-byte LE uint32 length  +  pickle(result dict)
-#   Shutdown signal: 4 zero bytes (length == 0)
 
 
 def _subprocess_recv():
@@ -578,7 +534,6 @@ def subprocess_worker_main():
         device=device,
     )
 
-    # Process batches until shutdown signal
     while True:
         msg = _subprocess_recv()
         if msg is None:
@@ -630,7 +585,6 @@ class _GPUWorker:
             stdout=subprocess.PIPE,
             env=env,
         )
-        # Send init args
         init_data = pickle.dumps(
             (feature_extractor_path, decoder_path), protocol=pickle.HIGHEST_PROTOCOL
         )
@@ -689,7 +643,6 @@ class GPUWorkerPool:
         self._futures: dict[int, Future] = {}
         self._futures_lock = threading.Lock()
         self._next_id = 0
-        # Start reader threads for each worker
         self._reader_threads = []
         for worker in self.workers:
             t = threading.Thread(target=self._reader_loop, args=(worker,), daemon=True)
@@ -729,9 +682,6 @@ class GPUWorkerPool:
             t.join(timeout=5)
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 
 def main() -> None:
@@ -740,12 +690,10 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    # ── Subprocess worker mode ──
     if args._subprocess_worker:
         subprocess_worker_main()
         return
 
-    # Validate input arguments
     assert args.tar_output_pattern is not None, "--tar_output_pattern is required."
     assert args.jsonl_output_pattern is not None, "--jsonl_output_pattern is required."
     assert bool(args.input_manifest) != bool(
@@ -757,7 +705,6 @@ def main() -> None:
             0 <= args.machine_index < args.num_machines
         ), f"machine_index {args.machine_index} must be in [0, {args.num_machines})"
 
-    # ── Build base dataset and count total samples ──
     if args.input_jsonl:
         logging.info(f"Input mode: raw JSONL ({args.input_jsonl})")
         total_samples = count_lines(args.input_jsonl)
@@ -809,7 +756,6 @@ def main() -> None:
             evaluation=True,
         )
 
-    # ── Dynamic batching + DataLoader ──
     batched_dataset = StreamLengthGroupDataset(
         dataset=base_dataset,
         batch_duration=args.batch_duration,
@@ -833,7 +779,6 @@ def main() -> None:
         persistent_workers=loader_workers > 0,
     )
 
-    # ── Multi-GPU process pool ──
     num_devices = torch.cuda.device_count()
     if num_devices == 0:
         logging.warning("No GPUs detected - using CPU for processing")
@@ -845,14 +790,11 @@ def main() -> None:
         f"Total processes: {num_processes}"
     )
 
-    # Build a list of (physical_gpu_id, num_workers) for each pool.
-    # When num_devices == 0 we use a single CPU pool.
     if num_devices == 0:
         pool_specs = [(None, num_processes)]
     else:
         pool_specs = [(gpu_id, args.nj_per_gpu) for gpu_id in range(num_devices)]
 
-    # ── Output paths ──
     tar_output_pattern = str(Path(args.tar_output_pattern).expanduser())
     jsonl_output_pattern = str(Path(args.jsonl_output_pattern).expanduser())
     Path(tar_output_pattern).parent.mkdir(parents=True, exist_ok=True)
@@ -869,7 +811,6 @@ def main() -> None:
     error_fh.setFormatter(logging.Formatter("%(message)s"))
     error_logger.addHandler(error_fh)
 
-    # ── Progress and shard tracking ──
     processed_count = 0
     error_count = 0
     write_error_count = 0
@@ -961,11 +902,8 @@ def main() -> None:
                 f"{result['error']}"
             )
 
-    # ── Main processing loop ──
     main_progress = tqdm(total=total_samples, desc="Denoising Audio")
 
-    # Launch subprocess-based GPU workers.  CUDA_VISIBLE_DEVICES is set in the
-    # subprocess Popen environment so it takes effect before import torch.
     pool = GPUWorkerPool(pool_specs, args.feature_extractor_path, args.decoder_path)
     logging.info(f"Submitting tasks... ({num_processes} subprocess workers)")
     try:
@@ -1015,13 +953,11 @@ def main() -> None:
                 shard_duration,
             )
 
-    # ── Write manifest (data.lst) ──
     with open(manifest_path, "w", encoding="utf-8") as mf:
         for idx in sorted(shard_manifest.keys()):
             tar_path, jsonl_path, count, duration = shard_manifest[idx]
             mf.write(f"{tar_path} {jsonl_path} {count} {duration:.3f}\n")
 
-    # ── Summary ──
     total_failed = error_count + write_error_count
     filtered_and_skipped = total_samples - processed_count - total_failed
     logging.info(

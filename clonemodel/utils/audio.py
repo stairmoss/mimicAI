@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Audio I/O and processing utilities.
 
@@ -37,9 +22,6 @@ from pydub.silence import detect_leading_silence, detect_nonsilent, split_on_sil
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Loading
-# ---------------------------------------------------------------------------
 
 
 def load_waveform(audio_path: str):
@@ -55,9 +37,8 @@ def load_waveform(audio_path: str):
     """
     try:
         data, sr = sf.read(audio_path, dtype="float32", always_2d=True)
-        return data.T, sr  # (T, C) → (C, T)
+        return data.T, sr
     except Exception:
-        # soundfile cannot handle MP3/M4A etc., fall back to librosa.
         import librosa
 
         data, sr = librosa.load(audio_path, sr=None, mono=False)
@@ -102,7 +83,7 @@ def load_audio_bytes(raw: bytes, sampling_rate: int) -> np.ndarray:
 
     try:
         data, sr = sf.read(buf, dtype="float32", always_2d=True)
-        data = data.T  # (T, C) → (C, T)
+        data = data.T
     except Exception:
         import librosa
 
@@ -121,16 +102,13 @@ def load_audio_bytes(raw: bytes, sampling_rate: int) -> np.ndarray:
     return data
 
 
-# ---------------------------------------------------------------------------
-# Audio processing (all numpy in / numpy out)
-# ---------------------------------------------------------------------------
 
 
 def numpy_to_audiosegment(audio: np.ndarray, sample_rate: int) -> AudioSegment:
     """Convert a numpy float32 array of shape (C, T) to a pydub AudioSegment."""
     audio_int = (audio * 32768.0).clip(-32768, 32767).astype(np.int16)
     if audio_int.shape[0] > 1:
-        audio_int = audio_int.T.flatten()  # interleave channels
+        audio_int = audio_int.T.flatten()
     return AudioSegment(
         data=audio_int.tobytes(),
         sample_width=2,

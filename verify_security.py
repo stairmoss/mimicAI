@@ -3,7 +3,6 @@ import sys
 import os
 from pathlib import Path
 
-# Add current dir to python path
 sys.path.insert(0, str(Path(__file__).parent.resolve()))
 
 try:
@@ -15,12 +14,10 @@ except ImportError as e:
 def test_safe_id():
     print("[*] Running _is_safe_id validation tests...")
     
-    # Valid IDs
     assert _is_safe_id("valid_id-123") == True, "Failed: valid_id-123 should be allowed"
     assert _is_safe_id("another123SafeID") == True, "Failed: another123SafeID should be allowed"
     assert _is_safe_id("a") == True, "Failed: single char should be allowed"
     
-    # Invalid / Unsafe IDs
     assert _is_safe_id("") == False, "Failed: empty string should be rejected"
     assert _is_safe_id(None) == False, "Failed: None should be rejected"
     assert _is_safe_id("../etc/passwd") == False, "Failed: path traversal should be rejected"
@@ -35,24 +32,19 @@ def test_path_traversal_prevention():
     print("[*] Running path traversal prevention tests...")
     vm = VoiceManager()
     
-    # Setup temporary voices_dir
     original_voices_dir = vm.voices_dir
     temp_dir = Path(__file__).parent / "temp_test_voices"
     temp_dir.mkdir(exist_ok=True)
     vm.voices_dir = temp_dir
     
     try:
-        # Test delete_voice with traversal
         assert vm.delete_voice("../dummy") == False, "Failed: delete_voice should reject traversal ID"
         
-        # Test get_reference_audio_path with traversal
         assert vm.get_reference_audio_path("../dummy") == None, "Failed: get_reference_audio_path should reject traversal ID"
         
-        # Test get_voice_metadata with traversal
         assert vm.get_voice_metadata("../dummy") == None, "Failed: get_voice_metadata should reject traversal ID"
         
     finally:
-        # Cleanup
         vm.voices_dir = original_voices_dir
         if temp_dir.exists():
             import shutil
@@ -64,11 +56,9 @@ def test_voice_design_validation():
     print("[*] Running voice design validation tests...")
     vm = VoiceManager()
     
-    # Non-dict input
     assert vm._generate_designed_voice("test", None) is None, "Failed: None design input should return None"
     assert vm._generate_designed_voice("test", "not-a-dict") is None, "Failed: String design input should return None"
     
-    # Verify malicious/invalid parameters do not crash the engine
     try:
         vm._generate_designed_voice("test", {
             "gender": "unknown-malicious",

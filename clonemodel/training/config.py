@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Training configuration dataclass.
 
@@ -29,17 +14,14 @@ from typing import List, Optional, Tuple
 
 @dataclass
 class TrainingConfig:
-    # Key Paths
     output_dir: Optional[str] = None
     data_config: Optional[str] = None
 
-    # Model Specific
     llm_name_or_path: str = "Qwen/Qwen3-0.6B"
-    audio_vocab_size: int = 1025  # valid vocab size + 1 (mask token)
-    audio_mask_id: int = 1024  # 1024 is the 1025-th token
+    audio_vocab_size: int = 1025
+    audio_mask_id: int = 1024
     num_audio_codebook: int = 8
 
-    # Model Training Specific
     audio_codebook_weights: List[float | int] = field(
         default_factory=lambda: [8, 8, 6, 6, 4, 4, 2, 2]
     )
@@ -51,11 +33,9 @@ class TrainingConfig:
     instruct_ratio: float = 1.0
     only_instruct_ratio: float = 0.5
 
-    # Init settings
     resume_from_checkpoint: Optional[str] = None
     init_from_checkpoint: Optional[str] = None
 
-    # Training Hyperparams
     learning_rate: float = 1e-4
     weight_decay: float = 0.01
     max_grad_norm: float = 1.0
@@ -66,24 +46,20 @@ class TrainingConfig:
     warmup_ratio: float = 0.03
     warmup_steps: int = 2000
 
-    # Data
     batch_tokens: int = 8192
     gradient_accumulation_steps: int = 1
     num_workers: int = 8
 
-    # System
     mixed_precision: str = "bf16"
     allow_tf32: bool = True
     use_deepspeed: bool = False
     deepspeed_config: Optional[str] = None
     attn_implementation: str = "flex_attention"
 
-    # Length-grouped batching (only used when attn_implementation != "flex_attention")
     max_sample_tokens: int = 2000
     min_sample_tokens: int = 50
     max_batch_size: int = 64
 
-    # Logging
     logging_steps: int = 100
     eval_steps: int = 1000
     save_steps: int = 10000

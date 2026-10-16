@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """
 Calculate UTMOS score with automatic Mean Opinion Score (MOS) prediction system
@@ -37,7 +22,6 @@ from omnivoice.utils.data_utils import read_test_list
 
 warnings.filterwarnings("ignore")
 
-# Global variables for workers
 worker_model = None
 worker_device = None
 worker_sr = 16000
@@ -105,7 +89,6 @@ def worker_init(
     """Initialize worker process with model and device."""
     global worker_model, worker_device, worker_sr
 
-    # Limit CPU threads per worker
     torch.set_num_threads(2)
 
     formatter = "%(asctime)s %(levelname)s [%(filename)s:%(lineno)d] [Worker %(process)d] %(message)s"
@@ -118,10 +101,8 @@ def worker_init(
 
     logging.debug(f"Initializing UTMOS worker on {worker_device}")
 
-    # Initialize Model
     worker_model = UTMOS22Strong()
     try:
-        # Load weights to CPU first, then move to device
         state_dict = torch.load(model_path, map_location="cpu")
         worker_model.load_state_dict(state_dict)
     except Exception as e:
@@ -139,11 +120,8 @@ def run_utmos_worker(file_idx, wav_path, language_name):
         if not os.path.exists(wav_path):
             return file_idx, wav_path, language_name, f"File not found: {wav_path}", "error"
 
-        # Load and preprocess waveform
         speech = load_eval_waveform(wav_path, worker_sr, device=worker_device)
 
-        # Compute score
-        # UTMOS expects input shape (Batch, Time)
         score = worker_model(speech.unsqueeze(0), worker_sr)
 
         return file_idx, wav_path, language_name, score.item(), "success"
@@ -160,7 +138,6 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
 
-    # Main process thread setting
     torch.set_num_threads(2)
 
     mp.set_start_method("spawn", force=True)
@@ -168,7 +145,6 @@ def main():
     formatter = "%(asctime)s %(levelname)s [%(filename)s:%(lineno)d] %(message)s"
     logging.basicConfig(format=formatter, level=logging.INFO, force=True)
 
-    # Validate inputs
     if not os.path.isdir(args.wav_path):
         logging.error(f"Invalid directory: {args.wav_path}")
         sys.exit(1)
@@ -178,7 +154,6 @@ def main():
         logging.error(f"Model file not found at {model_path}")
         sys.exit(1)
 
-    # Scan directory for files
     logging.info(f"Calculating UTMOS for {args.wav_path}")
 
     wav_files = []
@@ -191,7 +166,6 @@ def main():
     except Exception as e:
         raise ValueError(f"Error reading test list {args.test_list}: {e}")
 
-    # Setup Parallel Processing
     num_gpus = torch.cuda.device_count()
     assert num_gpus > 0, "No GPU found. GPU is required."
     total_procs = num_gpus * args.nj_per_gpu

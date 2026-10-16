@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
 Gradio demo for MimicVoice.
 
@@ -44,17 +29,9 @@ def get_best_device():
     return "cpu"
 
 
-# ---------------------------------------------------------------------------
-# Language list — all 600+ supported languages
-# ---------------------------------------------------------------------------
 _ALL_LANGUAGES = ["Auto"] + sorted(lang_display_name(n) for n in LANG_NAMES)
 
 
-# ---------------------------------------------------------------------------
-# Voice Design instruction templates
-# ---------------------------------------------------------------------------
-# Each option is displayed as "English / 中文".
-# The model expects English for accents and Chinese for dialects.
 _CATEGORIES = {
     "Gender / 性别": ["Male / 男", "Female / 女"],
     "Age / 年龄": [
@@ -105,9 +82,6 @@ _ATTR_INFO = {
     "Chinese Dialect / 中文方言": "Only effective for Chinese speech.",
 }
 
-# ---------------------------------------------------------------------------
-# Argument parser
-# ---------------------------------------------------------------------------
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -152,9 +126,6 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-# ---------------------------------------------------------------------------
-# Build demo
-# ---------------------------------------------------------------------------
 
 
 def build_demo(
@@ -165,7 +136,6 @@ def build_demo(
 
     sampling_rate = model.sampling_rate
 
-    # -- shared generation core --
     def _gen_core(
         text,
         language,
@@ -222,12 +192,8 @@ def build_demo(
         waveform = (audio[0] * 32767).astype(np.int16)
         return (sampling_rate, waveform), "Done."
 
-    # Allow external wrappers (e.g. spaces.GPU for ZeroGPU Spaces)
     _gen = generate_fn if generate_fn is not None else _gen_core
 
-    # =====================================================================
-    # UI
-    # =====================================================================
     theme = gr.themes.Soft(
         font=["Inter", "Arial", "sans-serif"],
     )
@@ -239,7 +205,6 @@ def build_demo(
     .compact-audio .waveform {min-height: 80px !important;}
     """
 
-    # Reusable: language dropdown component
     def _lang_dropdown(label="Language (optional) / 语种 (可选)", value="Auto"):
         return gr.Dropdown(
             label=label,
@@ -250,7 +215,6 @@ def build_demo(
             info="Keep as Auto to auto-detect the language.",
         )
 
-    # Reusable: optional generation settings accordion
     def _gen_settings():
         with gr.Accordion("Generation Settings (optional)", open=False):
             sp = gr.Slider(
@@ -319,9 +283,6 @@ by Xiaomi AI Lab Next-gen Kaldi team.
         )
 
         with gr.Tabs():
-            # ==============================================================
-            # Voice Clone
-            # ==============================================================
             with gr.TabItem("Voice Clone"):
                 with gr.Row():
                     with gr.Column(scale=1):
@@ -404,9 +365,6 @@ by Xiaomi AI Lab Next-gen Kaldi team.
                     outputs=[vc_audio, vc_status],
                 )
 
-            # ==============================================================
-            # Voice Design
-            # ==============================================================
             with gr.TabItem("Voice Design"):
                 with gr.Row():
                     with gr.Column(scale=1):
@@ -459,7 +417,6 @@ by Xiaomi AI Lab Next-gen Kaldi team.
                     for v in selected:
                         if " / " in v:
                             en, zh = v.split(" / ", 1)
-                            # Dialects have no English equivalent
                             if "Dialect" in v.split(" / ")[0]:
                                 parts.append(zh.strip())
                             else:
@@ -504,9 +461,6 @@ by Xiaomi AI Lab Next-gen Kaldi team.
     return demo
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 
 def main(argv=None) -> int:

@@ -42,7 +42,6 @@ def build_model_and_tokenizer(
     """Load Tokenizer and Model, handle resizing and special tokens."""
     logger.info("Initializing Model & Tokenizer...")
 
-    # 1. Tokenizer
     tokenizer_path = (
         config.init_from_checkpoint
         if config.init_from_checkpoint
@@ -88,7 +87,7 @@ def build_model_and_tokenizer(
         )
 
         original_level = hf_logging.get_verbosity()
-        hf_logging.set_verbosity_error()  # suppress expected lm_head.weight warnings
+        hf_logging.set_verbosity_error()
 
         llm = AutoModel.from_pretrained(
             resolved_llm,
@@ -99,12 +98,10 @@ def build_model_and_tokenizer(
         hf_logging.set_verbosity(original_level)
         model = MimicVoice(config=ov_config, llm=llm)
 
-    # 3. Resize Embeddings
     if len(tokenizer) != model.config.llm_config.vocab_size:
         model.llm.resize_token_embeddings(len(tokenizer))
         model.config.llm_config.vocab_size = len(tokenizer)
 
-    # 4. Config IDs
     model.config.pad_token_id = tokenizer.pad_token_id
     model.config.bos_token_id = tokenizer.bos_token_id
     model.config.eos_token_id = tokenizer.eos_token_id
@@ -210,7 +207,7 @@ def build_dataloaders(
             )
         eval_loader = DataLoader(
             dev_dataset,
-            batch_size=None,  # Each item is already a collated batch
+            batch_size=None,
             num_workers=1,
             collate_fn=collate_fn,
             pin_memory=True,

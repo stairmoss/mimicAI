@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Checkpoint saving, resuming, and training logging.
 
@@ -72,7 +57,6 @@ class TrainLogger:
         if self.progress_bar:
             self.progress_bar.update(1)
 
-            # Update real-time metrics on the progress bar itself
             postfix = {}
             if loss is not None:
                 postfix["loss"] = f"{loss:.4f}"
@@ -86,12 +70,9 @@ class TrainLogger:
         """
         Called periodically to log to TensorBoard/WandB and console.
         """
-        # Log to trackers (TensorBoard, etc.)
         self.accelerator.log(metrics, step=step)
 
         if self.accelerator.is_main_process:
-            # Format for console log (separate from tqdm)
-            # Remove keys that are redundant or too verbose for one line
             formatted_metrics = []
             for k, v in metrics.items():
                 if isinstance(v, float):
@@ -103,7 +84,6 @@ class TrainLogger:
                 else:
                     formatted_metrics.append(f"{k}: {v}")
 
-            # Use external logger to write to file, tqdm.write to avoid breaking bar
             msg = f"Step {step} | " + " | ".join(formatted_metrics)
             if self.progress_bar:
                 self.progress_bar.write(msg)
@@ -129,10 +109,8 @@ def save_checkpoint(
     """
     checkpoint_dir = os.path.join(output_dir, f"checkpoint-{step}")
 
-    # 1. Save Accelerator State (Optimizer, Scheduler, RNG, Scaler)
     accelerator.save_state(checkpoint_dir)
 
-    # 2. Save Model in HF format (config.json + pytorch_model.bin/safetensors)
     unwrap_model = accelerator.unwrap_model(model)
     unwrap_model.save_pretrained(
         checkpoint_dir,
@@ -140,13 +118,11 @@ def save_checkpoint(
         save_function=accelerator.save,
     )
 
-    # 3. Save Tokenizer
     if accelerator.is_main_process:
         tokenizer.save_pretrained(checkpoint_dir)
 
     logger.info(f"Saved checkpoint to {checkpoint_dir}")
 
-    # 4. Rotate checkpoints (Keep last N)
     if accelerator.is_main_process and keep_last_n > 0:
         checkpoints = [
             d
@@ -154,7 +130,6 @@ def save_checkpoint(
             if d.startswith("checkpoint-")
             and os.path.isdir(os.path.join(output_dir, d))
         ]
-        # Sort by step number
         checkpoints.sort(key=lambda x: int(x.split("-")[-1]))
 
         if len(checkpoints) > keep_last_n:
@@ -171,7 +146,6 @@ def load_checkpoint(accelerator: Accelerator, checkpoint_path: str):
     logger.info(f"Resuming from {checkpoint_path}")
     accelerator.load_state(checkpoint_path)
 
-    # Try to infer step
     try:
         clean_path = os.path.normpath(checkpoint_path)
         step = int(os.path.basename(clean_path).split("-")[-1])

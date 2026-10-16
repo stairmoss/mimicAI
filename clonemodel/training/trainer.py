@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Training loop for MimicVoice.
 
@@ -57,7 +42,7 @@ class OmniTrainer:
     def __init__(
         self,
         model: torch.nn.Module,
-        config: Any,  # TrainingConfig
+        config: Any,
         train_dataloader: DataLoader,
         eval_dataloader: Optional[DataLoader] = None,
         tokenizer: Optional[Any] = None,
@@ -70,23 +55,19 @@ class OmniTrainer:
         self.train_dataloader = train_dataloader
         self.eval_dataloader = eval_dataloader
 
-        # 1. Initialize Accelerator
         self.accelerator = self._init_accelerator()
 
-        # 2. Setup Optimizer & Scheduler if not provided
         if optimizer is None:
             self.optimizer, self.lr_scheduler = self.create_optimizer_and_scheduler()
         else:
             self.optimizer = optimizer
             self.lr_scheduler = lr_scheduler
 
-        # 3. DeepSpeed Hack (Batch Size fix)
         if self.accelerator.distributed_type == "DEEPSPEED":
             self.accelerator.state.deepspeed_plugin.deepspeed_config[
                 "train_micro_batch_size_per_gpu"
             ] = 1
 
-        # 4. Prepare with Accelerator
         (self.model, self.optimizer, self.lr_scheduler,) = self.accelerator.prepare(
             self.model,
             self.optimizer,
@@ -98,15 +79,12 @@ class OmniTrainer:
 
     def _init_accelerator(self) -> Accelerator:
         """Initialize Accelerator, DeepSpeed, and Logging."""
-        # TF32 setup
         if getattr(self.config, "allow_tf32", False):
             torch.set_float32_matmul_precision("high")
 
-        # Init handlers
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=False)
         init_kwargs = InitProcessGroupKwargs(timeout=timedelta(minutes=60))
 
-        # DeepSpeed setup
         deepspeed_plugin = None
         if self.config.use_deepspeed and self.config.deepspeed_config:
             if not os.path.exists(self.config.deepspeed_config):
@@ -130,10 +108,8 @@ class OmniTrainer:
             split_batches=False,
         )
 
-        # Logging setup
         if accelerator.is_main_process:
             os.makedirs(self.config.output_dir, exist_ok=True)
-            # Try to save config if it has the method
             if hasattr(self.config, "save_to_json"):
                 self.config.save_to_json(
                     os.path.join(self.config.output_dir, "initial_config.json")
@@ -194,7 +170,6 @@ class OmniTrainer:
             step,
             self.config.keep_last_n_checkpoints,
         )
-        # Save config copy for convenience
         if self.accelerator.is_main_process and hasattr(self.config, "save_to_json"):
             checkpoint_dir = os.path.join(self.config.output_dir, f"checkpoint-{step}")
             self.config.save_to_json(os.path.join(checkpoint_dir, "train_config.json"))
@@ -244,15 +219,12 @@ class OmniTrainer:
         """Main training loop."""
         logger.info("Starting Training Loop...")
 
-        # Resume if configured
         if self.config.resume_from_checkpoint:
             self.load_checkpoint(self.config.resume_from_checkpoint)
 
-        # Handle IterableDataset Epochs
         if hasattr(self.train_dataloader.dataset, "set_epoch"):
             self.train_dataloader.dataset.set_epoch(self.epoch)
 
-        # Logger
         train_logger = TrainLogger(
             self.accelerator, self.config.steps, self.config.logging_steps
         )
@@ -287,7 +259,6 @@ class OmniTrainer:
                 self.accelerator.backward(loss)
 
                 if self.accelerator.sync_gradients:
-                    # Clipping
                     grad_norm = 0.0
                     if self.config.max_grad_norm > 0:
                         grad_norm = self.accelerator.clip_grad_norm_(
@@ -302,7 +273,6 @@ class OmniTrainer:
                     self.optimizer.zero_grad()
                     self.global_step += 1
 
-                    # Logging
                     current_lr = self.lr_scheduler.get_last_lr()[0]
                     train_logger.update(
                         step=self.global_step, loss=loss.item(), lr=current_lr
@@ -336,18 +306,15 @@ class OmniTrainer:
                         logging_start_time = time.time()
                         logging_start_step = self.global_step
 
-                    # Evaluate
                     if (
                         self.eval_dataloader is not None
                         and self.global_step % self.config.eval_steps == 0
                     ):
                         self.evaluate()
 
-                    # Save
                     if self.global_step % self.config.save_steps == 0:
                         self.save_checkpoint(self.global_step)
 
-        # Final Save
         self.save_checkpoint(self.global_step)
         train_logger.close()
         self.accelerator.end_training()

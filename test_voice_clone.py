@@ -12,7 +12,6 @@ def run_checks():
     presets = list_presets()
     print("Presets available:", len(presets))
 
-    # zero-shot voice design check
     res = vm._generate_designed_voice("Hello test", {"gender": "female", "accent": "us"})
     print("Zero shot test:", "OK" if res is not None else "fallback active")
 

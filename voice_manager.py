@@ -257,7 +257,6 @@ class VoiceManager:
                 if not language or language == "auto":
                     language = profile.get("language", "en")
 
-        # 1. clone path
         if prefer_clone and voice_id:
             res = self._generate_f5_tts(text, voice_id, progress_callback, lightweight=lightweight)
             if res is not None:
@@ -266,7 +265,6 @@ class VoiceManager:
             if not allow_fallback:
                 return None
 
-        # 2. piper local default
         piper_res = self._generate_piper(text)
         if piper_res is not None:
             self.last_tts_engine = "piper"
@@ -620,7 +618,6 @@ class VoiceManager:
 
             audio = audio.apply_gain(-20.0 - audio.dBFS)
 
-            # trim leading/trailing silence
             chunks = split_on_silence(
                 audio, min_silence_len=300, silence_thresh=-40, keep_silence=100,
             )

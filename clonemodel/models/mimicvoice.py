@@ -1,18 +1,4 @@
 #!/usr/bin/env python3
-# Copyright    2026  Xiaomi Corp.        (authors:  Han Zhu)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
 
 
 import difflib
@@ -71,14 +57,11 @@ from clonemodel.utils.voice_design import (
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Dataclasses
-# ---------------------------------------------------------------------------
 
 
 @dataclass
 class VoiceClonePrompt:
-    ref_audio_tokens: torch.Tensor  # (C, T)
+    ref_audio_tokens: torch.Tensor
     ref_text: str
     ref_rms: float
 
@@ -144,9 +127,6 @@ class MimicVoiceModelOutput(ModelOutput):
     logits: Optional[torch.Tensor] = None
 
 
-# ---------------------------------------------------------------------------
-# Config & Model
-# ---------------------------------------------------------------------------
 
 
 class MimicVoiceConfig(PretrainedConfig):
@@ -195,11 +175,8 @@ class MimicVoice(PreTrainedModel):
         super().__init__(config)
 
         if llm is not None:
-            # If an LLM instance is provided, use it directly
-            # (skipping config-based init).
             self.llm = llm
         else:
-            # Otherwise, initialize the LLM from the config.
             self.llm = AutoModel.from_config(self.config.llm_config)
 
         self.audio_embeddings = nn.Embedding(
@@ -224,7 +201,6 @@ class MimicVoice(PreTrainedModel):
 
         self.post_init()
 
-        # Inference-only attributes (set by from_pretrained when not in train mode)
         self.text_tokenizer = None
         self.audio_tokenizer = None
         self.duration_estimator = None
@@ -238,12 +214,10 @@ class MimicVoice(PreTrainedModel):
         asr_model_name = kwargs.pop("asr_model_name", "openai/whisper-large-v3-turbo")
         local_files_only = kwargs.get("local_files_only", False)
 
-        # Suppress noisy INFO logs from transformers/huggingface_hub during loading
         _prev_disable = logging.root.manager.disable
         logging.disable(logging.INFO)
 
         try:
-            # Resolve to local path first; download only if not already cached
             resolved_path = _resolve_model_path(pretrained_model_name_or_path, local_files_only=local_files_only)
 
             model = super().from_pretrained(resolved_path, *args, **kwargs)
@@ -259,8 +233,6 @@ class MimicVoice(PreTrainedModel):
                         local_files_only=local_files_only
                     )
 
-                # higgs-audio-v2-tokenizer does not support MPS
-                # (output channels > 65536)
                 tokenizer_device = (
                     "cpu" if str(model.device).startswith("mps") else model.device
                 )
@@ -282,9 +254,6 @@ class MimicVoice(PreTrainedModel):
 
         return model
 
-    # -------------------------------------------------------------------
-    # ASR support (optional, for auto-transcription)
-    # -------------------------------------------------------------------
 
     def load_asr_model(self, model_name: str = "openai/whisper-large-v3-turbo"):
         """Load a Whisper ASR model for reference audio transcription.
@@ -335,7 +304,7 @@ class MimicVoice(PreTrainedModel):
             waveform, sr = audio
             if isinstance(waveform, torch.Tensor):
                 waveform = waveform.cpu().numpy()
-            waveform = np.squeeze(waveform)  # (1, T) or (T,) → (T,)
+            waveform = np.squeeze(waveform)
             audio_input = {
                 "array": waveform,
                 "sampling_rate": sr,
@@ -357,15 +326,10 @@ class MimicVoice(PreTrainedModel):
         """
         text_embeds = self.get_input_embeddings()(input_ids[:, 0, :])
 
-        # Apply shift to audio IDs based on codebook layer
-        # audio_ids: [Batch, 8, Seq]
-        # codebook_layer_offsets: [1, 8, 1]
-        # Result: Layer 0 ID Layer 1 ID + Layer 2 ID + 2050...
         shifted_ids = (
             input_ids * audio_mask.unsqueeze(1)
         ) + self.codebook_layer_offsets.view(1, -1, 1)
 
-        # input: [Batch, 8, Seq] -> output: [Batch, Seq, Hidden]
         audio_embeds = self.audio_embeddings(shifted_ids).sum(dim=1)
 
         return torch.where(audio_mask.unsqueeze(-1), audio_embeds, text_embeds)
@@ -411,10 +375,8 @@ class MimicVoice(PreTrainedModel):
 
         loss = None
 
-        # Shape: [B, S, C * Vocab]
         batch_size, seq_len, _ = hidden_states.shape
         logits_flat = self.audio_heads(hidden_states)
-        # Shape: [B, S, C, Vocab] -> [B, C, S, Vocab]
         audio_logits = logits_flat.view(
             batch_size,
             seq_len,
@@ -424,19 +386,14 @@ class MimicVoice(PreTrainedModel):
 
         if labels is not None:
 
-            # audio_logits.permute(0, 3, 1, 2):
-            # [Batch, Layer, Seq, Vocab] -> [Batch, Vocab, Layer, Seq]
-            # per_token_loss shape: [Batch, Layer, Seq]，ignore -100
             per_token_loss = torch.nn.functional.cross_entropy(
                 audio_logits.permute(0, 3, 1, 2),
                 labels,
                 reduction="none",
                 ignore_index=-100,
             )
-            # valid_mask shape: [Batch, Layer, Seq]
             valid_mask = (labels != -100).float()
 
-            # layer_means shape: [num_layers]
             layer_means = (per_token_loss * valid_mask).sum(
                 dim=(0, 2)
             ) / valid_mask.sum(dim=(0, 2)).clamp(min=1.0)
@@ -459,9 +416,6 @@ class MimicVoice(PreTrainedModel):
         """Return a list of supported language names."""
         return LANG_NAMES
 
-    # -------------------------------------------------------------------
-    # Inference API
-    # -------------------------------------------------------------------
 
     @torch.inference_mode()
     def generate(
@@ -585,7 +539,7 @@ class MimicVoice(PreTrainedModel):
             assert results[i] is not None, f"Result {i} was not generated"
             generated_audios.append(
                 self._decode_and_post_process(
-                    results[i], full_task.ref_rms[i], gen_config  # type: ignore[arg-type]
+                    results[i], full_task.ref_rms[i], gen_config
                 )
             )
 
@@ -641,9 +595,6 @@ class MimicVoice(PreTrainedModel):
             ref_wav = ref_wav * 0.1 / ref_rms
 
         if preprocess_prompt:
-            # Trim long reference audio (>20s) by splitting at the largest silence gap.
-            # Skip trimming when ref_text is user-provided, otherwise the
-            # trimmed audio will no longer match the full transcript.
             if ref_text is None:
                 ref_wav = trim_long_audio(
                     ref_wav, self.sampling_rate, trim_threshold=20.0
@@ -670,7 +621,6 @@ class MimicVoice(PreTrainedModel):
                 ref_duration,
             )
 
-        # Auto-transcribe if ref_text not provided
         if ref_text is None:
             if self._asr_pipe is None:
                 logger.info("ASR model not loaded yet, loading on-the-fly ...")
@@ -681,13 +631,12 @@ class MimicVoice(PreTrainedModel):
         chunk_size = self.audio_tokenizer.config.hop_length
         clip_size = int(ref_wav.shape[-1] % chunk_size)
         ref_wav = ref_wav[:, :-clip_size] if clip_size > 0 else ref_wav
-        # numpy → torch at tokenizer boundary
         ref_wav_tensor = torch.from_numpy(ref_wav).to(self.audio_tokenizer.device)
         ref_audio_tokens = self.audio_tokenizer.encode(
             ref_wav_tensor.unsqueeze(0),
         ).audio_codes.squeeze(
             0
-        )  # (C, T)
+        )
 
         if preprocess_prompt:
             ref_text = add_punctuation(ref_text)
@@ -791,7 +740,6 @@ class MimicVoice(PreTrainedModel):
         Returns:
             Per-item list of chunk token-tensor lists.
         """
-        # Chunk each item's text
         all_chunks = []
         for i in range(task.batch_size):
             avg_tokens_per_char = task.target_lens[i] / len(task.texts[i])
@@ -816,7 +764,6 @@ class MimicVoice(PreTrainedModel):
 
         max_num_chunks = max(len(c) for c in all_chunks)
 
-        # chunk_results[item_idx] = list of generated token tensors per chunk
         chunk_results = [[] for _ in range(task.batch_size)]
 
         def _run_batch(indices, texts, ref_audios, ref_texts):
@@ -846,10 +793,6 @@ class MimicVoice(PreTrainedModel):
                 chunk_results[idx].append(gen_tokens[j])
 
         if all(has_ref):
-            # All items have reference audio.
-            # We still sequentially generate chunks within each item, but we
-            # batch across items for the same chunk index. This allows to keep
-            # the VRAM usage manageable while still benefiting from batching.
             for ci in range(max_num_chunks):
                 indices = [i for i in range(task.batch_size) if ci < len(all_chunks[i])]
                 if not indices:
@@ -861,8 +804,6 @@ class MimicVoice(PreTrainedModel):
                     ref_texts=[task.ref_texts[i] for i in indices],
                 )
         else:
-            # No reference audio — generate chunk 0 for all items first,
-            # then use chunk 0 output as reference for all subsequent chunks.
             indices_0 = [i for i in range(task.batch_size) if len(all_chunks[i]) > 0]
             _run_batch(
                 indices_0,
@@ -872,7 +813,6 @@ class MimicVoice(PreTrainedModel):
             )
             first_chunk_map = {idx: chunk_results[idx][0] for idx in indices_0}
 
-            # Batch all remaining chunks, using chunk 0 as fixed reference
             for ci in range(1, max_num_chunks):
                 indices = [i for i in range(task.batch_size) if ci < len(all_chunks[i])]
                 if not indices:
@@ -933,8 +873,6 @@ class MimicVoice(PreTrainedModel):
                 "ref_text/ref_audio will be ignored."
             )
         if voice_clone_prompt is None and ref_audio is not None:
-            # If voice_clone_prompt is not provided, create it from
-            # ref_audio (ref_text will be auto-transcribed if not given).
             ref_text_list = self._ensure_list(ref_text, batch_size, auto_repeat=False)
             ref_audio_list = self._ensure_list(ref_audio, batch_size, auto_repeat=False)
 
@@ -960,7 +898,6 @@ class MimicVoice(PreTrainedModel):
             ref_audio_tokens_list = [None] * batch_size
             ref_rms_list = [None] * batch_size
 
-        # Normalize speed/duration to per-item lists (may contain None).
         if speed is not None:
             if isinstance(speed, (int, float)):
                 user_speed = [float(speed)] * batch_size
@@ -979,8 +916,6 @@ class MimicVoice(PreTrainedModel):
 
         num_target_tokens_list = []
         for i in range(batch_size):
-            # duration[i] overrides speed for estimation: use speed=1.0
-            # to get the raw estimate, then override target_lens below.
             has_dur = durations is not None and durations[i] is not None
             item_speed = 1.0 if has_dur else (user_speed[i] if user_speed else 1.0)
             est = self._estimate_target_tokens(
@@ -993,8 +928,6 @@ class MimicVoice(PreTrainedModel):
             )
             num_target_tokens_list.append(est)
 
-        # Per-item duration overrides: set target_lens to exact frame count
-        # and compute speed ratio so chunked generation scales proportionally.
         speed_list: Optional[List[float]] = None
         if durations is not None:
             frame_rate = self.audio_tokenizer.config.frame_rate
@@ -1026,7 +959,6 @@ class MimicVoice(PreTrainedModel):
     def _estimate_target_tokens(self, text, ref_text, num_ref_audio_tokens, speed=1.0):
         """Estimate number of target audio tokens."""
         if num_ref_audio_tokens is None or ref_text is None or len(ref_text) == 0:
-            # Fall back to a simple heuristic
             ref_text = "Nice to meet you."
             num_ref_audio_tokens = 25
 
@@ -1074,8 +1006,6 @@ class MimicVoice(PreTrainedModel):
             denoise: Whether to include the <|denoise|> token.
         """
 
-        # Build style tokens: <|denoise|> + <|lang_start|>...<|lang_end|>
-        #                      + <|instruct_start|>...<|instruct_end|>
         style_text = ""
         if denoise and ref_audio_tokens is not None:
             style_text += "<|denoise|>"
@@ -1090,9 +1020,8 @@ class MimicVoice(PreTrainedModel):
             .unsqueeze(0)
         ).to(
             self.device
-        )  # [1, C, N1]
+        )
 
-        # Build text tokens
         full_text = _combine_text(ref_text=ref_text, text=text)
         wrapped_text = f"<|text_start|>{full_text}<|text_end|>"
         text_tokens = (
@@ -1101,9 +1030,8 @@ class MimicVoice(PreTrainedModel):
             .unsqueeze(0)
         ).to(
             self.device
-        )  # [1, C, N2]
+        )
 
-        # Target: all MASK
         target_audio_tokens = torch.full(
             (1, self.config.num_audio_codebook, num_target_tokens),
             self.config.audio_mask_id,
@@ -1111,7 +1039,6 @@ class MimicVoice(PreTrainedModel):
             device=self.device,
         )
 
-        # Conditional input
         parts = [style_tokens, text_tokens]
         if ref_audio_tokens is not None:
             parts.append(ref_audio_tokens.unsqueeze(0).to(self.device))
@@ -1176,7 +1103,7 @@ class MimicVoice(PreTrainedModel):
 
         c_lens = [inp["input_ids"].size(2) for inp in inputs_list]
         max_c_len = max(c_lens)
-        pad_id = self.config.audio_mask_id  # Or any other tokens
+        pad_id = self.config.audio_mask_id
 
         batch_input_ids = torch.full(
             (2 * B, self.config.num_audio_codebook, max_c_len),
@@ -1194,12 +1121,10 @@ class MimicVoice(PreTrainedModel):
         for i, inp in enumerate(inputs_list):
             c_len, u_len = c_lens[i], task.target_lens[i]
 
-            # Cond (0 ~ B-1)
             batch_input_ids[i, :, :c_len] = inp["input_ids"]
             batch_audio_mask[i, :c_len] = inp["audio_mask"]
             batch_attention_mask[i, :, :c_len, :c_len] = True
 
-            # Uncond (B ~ 2B-1)
             batch_input_ids[B + i, :, :u_len] = inp["input_ids"][..., -u_len:]
             batch_audio_mask[B + i, :u_len] = inp["audio_mask"][..., -u_len:]
             batch_attention_mask[B + i, :, :u_len, :u_len] = True
@@ -1256,8 +1181,6 @@ class MimicVoice(PreTrainedModel):
 
                 c_len, t_len = c_lens[i], task.target_lens[i]
 
-                # Extract real target Logits
-                # [1, C, T, V]
                 c_logits = batch_logits[i : i + 1, :, c_len - t_len : c_len, :]
                 u_logits = batch_logits[B + i : B + i + 1, :, :t_len, :]
 
@@ -1280,7 +1203,6 @@ class MimicVoice(PreTrainedModel):
                 flat_tokens[topk_idx] = pred_tokens.flatten()[topk_idx]
                 sample_tokens.copy_(flat_tokens.view_as(sample_tokens))
 
-                # Update individual slices into batched structure
                 tokens[i : i + 1, :, :t_len] = sample_tokens
                 batch_input_ids[i : i + 1, :, c_len - t_len : c_len] = sample_tokens
                 batch_input_ids[B + i : B + i + 1, :, :t_len] = sample_tokens
@@ -1313,9 +1235,6 @@ class MimicVoice(PreTrainedModel):
         return pred_tokens, confidence_scores
 
 
-# ---------------------------------------------------------------------------
-# Standalone helpers
-# ---------------------------------------------------------------------------
 
 
 def _get_packed_mask(document_ids):
@@ -1323,9 +1242,6 @@ def _get_packed_mask(document_ids):
 
 
 def _mask_mod_packed(document_ids, b, h, q_idx, kv_idx):
-    # 1. Sequence Packing Logic: Tokens must belong to the same document.
-    # Note: The doc_id for padding tokens is -1, which will automatically not match
-    # (if handled correctly) or be ignored.
     same_doc = document_ids[q_idx] == document_ids[kv_idx]
     return same_doc
 
@@ -1401,11 +1317,9 @@ def _resolve_instruct(
     if not instruct_str:
         return None
 
-    # Split on both half-width and full-width commas
     raw_items = re.split(r"\s*[,，]\s*", instruct_str)
     raw_items = [x for x in raw_items if x]
 
-    # Validate each item
     unknown = []
     normalised = []
     for raw in raw_items:
@@ -1437,7 +1351,6 @@ def _resolve_instruct(
         )
         raise ValueError(err)
 
-    # --- Language consistency: dialect forces Chinese, accent forces English ---
     has_dialect = any(n.endswith("话") for n in normalised)
     has_accent = any(" accent" in n for n in normalised)
 
@@ -1452,13 +1365,11 @@ def _resolve_instruct(
     elif has_accent:
         use_zh = False
 
-    # --- Unify to single language ---
     if use_zh:
         normalised = [_INSTRUCT_EN_TO_ZH.get(n, n) for n in normalised]
     else:
         normalised = [_INSTRUCT_ZH_TO_EN.get(n, n) for n in normalised]
 
-    # --- Category conflict check ---
     conflicts = []
     for cat in _INSTRUCT_MUTUALLY_EXCLUSIVE:
         hits = [n for n in normalised if n in cat]
@@ -1475,7 +1386,6 @@ def _resolve_instruct(
             "allows at most one item."
         )
 
-    # Determine separator based on language
     has_zh = any(any("\u4e00" <= c <= "\u9fff" for c in n) for n in normalised)
     separator = "，" if has_zh else ", "
 
@@ -1558,22 +1468,17 @@ def _tokenize_with_nonverbal_tags(text: str, tokenizer) -> torch.Tensor:
 
 def _combine_text(text, ref_text: Optional[str] = None) -> str:
 
-    # combine with reference text if not None
     if ref_text:
         full_text = ref_text.strip() + " " + text.strip()
     else:
         full_text = text.strip()
 
-    # filter out newline / carriage-return characters
     full_text = re.sub(r"[\r\n]+", "", full_text)
 
-    # replace Chinese parentheses with English ones
     full_text = full_text.replace("\uff08", "(").replace("\uff09", ")")
 
-    # collapse consecutive spaces / tabs into a single space
     full_text = re.sub(r"[ \t]+", " ", full_text)
 
-    # remove spaces around chinese characters
     chinese_range = r"[\u4e00-\u9fff]"
     pattern = rf"(?<={chinese_range})\s+|\s+(?={chinese_range})"
     full_text = re.sub(pattern, "", full_text)
@@ -1581,15 +1486,11 @@ def _combine_text(text, ref_text: Optional[str] = None) -> str:
     return full_text
 
 
-# ---------------------------------------------------------------------------
-# Register with HuggingFace Auto classes
-# ---------------------------------------------------------------------------
 
 AutoConfig.register("omnivoice", MimicVoiceConfig)
 AutoModel.register(MimicVoiceConfig, MimicVoice)
 
 
-# Backward-compatible aliases
 OmniVoice = MimicVoice
 OmniVoiceConfig = MimicVoiceConfig
 OmniVoiceGenerationConfig = MimicVoiceGenerationConfig

@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
 
 """
 This module defines the normalization configuration for WER evaluation.
 Copied from https://github.com/facebookresearch/omnilingual-asr/blob/81f51e224ce9e74b02cc2a3eaf21b2d91d743455/workflows/dataprep/norm_config_module.py
 """
 
-# type: ignore
 import os
 import re
 
@@ -35,7 +29,6 @@ basic_punc = (
     + right_curly_bracket
 )
 
-# General punc unicode block (0x2000-0x206F)
 zero_width_space = r"\u200B"
 zero_width_nonjoiner = r"\u200C"
 left_to_right_mark = r"\u200E"
@@ -43,21 +36,15 @@ right_to_left_mark = r"\u200F"
 left_to_right_embedding = r"\u202A"
 pop_directional_formatting = r"\u202C"
 
-# Here are some commonly ill-typed versions of apostrophe
 right_single_quotation_mark = r"\u2019"
 left_single_quotation_mark = r"\u2018"
 
-# Language specific definitions
-# Spanish
 inverted_exclamation_mark = r"\u00A1"
 inverted_question_mark = r"\u00BF"
 
 
-# Hindi
 hindi_danda = "\u0964"
 
-# Egyptian Arabic
-# arabic_percent = r"\u066A"
 arabic_comma = r"\u060C"
 arabic_question_mark = r"\u061F"
 arabic_semicolon = r"\u061B"
@@ -67,7 +54,6 @@ arabic_diacritics = r"\u064B-\u0652"
 arabic_subscript_alef_and_inverted_damma = r"\u0656-\u0657"
 
 
-# Chinese
 full_stop = r"\u3002"
 full_comma = r"\uFF0C"
 full_exclamation_mark = r"\uFF01"
@@ -107,7 +93,6 @@ chinese_punc = (
     + fullwidth_low_line
 )
 
-# Armenian
 armenian_apostrophe = r"\u055A"
 emphasis_mark = r"\u055B"
 exclamation_mark = r"\u055C"
@@ -133,7 +118,6 @@ greater_than_sign = r"\u003e"
 
 nbsp_written_form = r"&nbsp"
 
-# Quotation marks
 left_double_quotes = r"\u201c"
 right_double_quotes = r"\u201d"
 left_double_angle = r"\u00ab"
@@ -168,7 +152,6 @@ mapping_quotes = (
 )
 
 
-# Digits
 
 english_digits = r"\u0030-\u0039"
 bengali_digits = r"\u09e6-\u09ef"
@@ -183,7 +166,6 @@ myanmar_digits = r"\u1040-\u1049"
 roman_numeral = r"\u2170-\u2179"
 nominal_digit_shapes = r"\u206f"
 
-# Load punctuations
 with open(f"{os.path.dirname(__file__)}/punctuations.lst", "r") as punc_f:
     punc_list = [
         line
@@ -193,7 +175,6 @@ with open(f"{os.path.dirname(__file__)}/punctuations.lst", "r") as punc_f:
 
 punct_pattern = r""
 for punc in punc_list:
-    # the first character in the tab separated line is the punc to be removed
     punct_pattern += re.escape(punc.split("\t")[0])
 
 shared_digits = (
@@ -261,31 +242,23 @@ norm_config = {
     }
 }
 
-# =============== Mongolian ===============#
 
 norm_config["mon"] = norm_config["*"].copy()
-# add soft hyphen to punc list to match with fleurs
 norm_config["mon"]["del_set"] += r"\u00AD"
 
 norm_config["khk"] = norm_config["mon"].copy()
 
-# =============== Hebrew ===============#
 
 norm_config["heb"] = norm_config["*"].copy()
-# add "HEBREW POINT" symbols to match with fleurs
 norm_config["heb"]["del_set"] += r"\u05B0-\u05BF\u05C0-\u05CF"
 
-# =============== Thai ===============#
 
 norm_config["tha"] = norm_config["*"].copy()
-# add "Zero width joiner" symbols to match with fleurs
 norm_config["tha"]["punc_set"] += r"\u200D"
 
-# =============== Arabic ===============#
 norm_config["ara"] = norm_config["*"].copy()
 norm_config["ara"]["mapping"]["ٱ"] = "ا"
 norm_config["arb"] = norm_config["ara"].copy()
 
-# =============== Javanese ===============#
 norm_config["jav"] = norm_config["*"].copy()
 norm_config["jav"]["rm_diacritics"] = True

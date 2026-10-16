@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Chrome Dark Mode Theme */
+  
   --bg: #202124;
   --bg2: #292a2d;
   --bg3: #303134;
@@ -85,7 +85,7 @@ html, body {
   width: 100vw;
 }
 
-/* Sidebar */
+
 .sidebar {
   width: 268px;
   min-width: 268px;
@@ -162,7 +162,7 @@ html, body {
   padding: 6px 8px 8px;
 }
 
-/* Voice List */
+
 .voice-list {
   list-style: none;
   margin-bottom: 8px;
@@ -347,7 +347,7 @@ html, body {
   box-shadow: 0 0 6px var(--accent);
 }
 
-/* Main Area */
+
 .main {
   flex: 1;
   display: flex;
@@ -356,7 +356,7 @@ html, body {
   background: var(--bg);
 }
 
-/* Header */
+
 .header {
   padding: 12px 20px;
   display: flex;
@@ -510,7 +510,7 @@ html, body {
   background: var(--bg2);
 }
 
-/* Chat Area */
+
 .chat-area {
   flex: 1;
   overflow-y: auto;
@@ -524,7 +524,7 @@ html, body {
   padding: 0 24px;
 }
 
-/* Welcome */
+
 .welcome {
   display: flex;
   flex-direction: column;
@@ -591,7 +591,7 @@ html, body {
   transform: translateY(-2px);
 }
 
-/* Messages */
+
 .message {
   display: flex;
   gap: 12px;
@@ -737,7 +737,7 @@ html, body {
 .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
 
-/* Expressiveness Cues */
+
 .symbol-insert-bar {
   max-width: 760px;
   margin: 0 auto 8px;
@@ -777,7 +777,7 @@ html, body {
   border-color: var(--border2);
 }
 
-/* Input Bar */
+
 .input-bar {
   padding: 0 20px 16px;
   background: var(--bg);
@@ -850,7 +850,7 @@ html, body {
   margin-right: auto;
 }
 
-/* Modals */
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -949,7 +949,7 @@ html, body {
   background: var(--bg2);
 }
 
-/* Recording Area */
+
 .record-area {
   display: flex;
   flex-direction: column;
@@ -1080,7 +1080,7 @@ html, body {
   color: var(--text);
 }
 
-/* Toasts */
+
 .toast-container {
   position: fixed;
   bottom: 22px;
@@ -1111,7 +1111,7 @@ html, body {
 .toast.error { border-left: 3px solid var(--red); }
 .toast.info { border-left: 3px solid var(--accent); }
 
-/* Animations */
+
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -1146,7 +1146,7 @@ html, body {
   .header-right .toggle-pill .toggle-label { display: none; }
 }
 
-/* Voice Design Tabs */
+
 .voice-mode-tabs {
   display: flex;
   background: var(--bg3);

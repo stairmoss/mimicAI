@@ -19,7 +19,6 @@ def clone_speech(ref_audio, text):
 
     t0 = time.time()
     try:
-        # preprocess reference audio
         clean_ref = piper_tts.preprocess_reference_audio(ref_audio)
         audio_bytes = clone_voice(
             text=text.strip()[:500],
@@ -27,7 +26,6 @@ def clone_speech(ref_audio, text):
             language="en",
         )
         if not audio_bytes:
-            # fallback to piper
             audio_bytes = piper_tts.synthesize(text=text.strip()[:500])
 
         if audio_bytes:
@@ -72,7 +70,7 @@ def chat_and_speak(message, history, voice_mode, ref_audio, gender, accent, spee
     if not message or not message.strip():
         return history or [], None
 
-    # simple AI response using gemini helper or local fallback
+   
     from gemini_helper import is_gemini_available, GEMINI_API_KEY, GEMINI_ENDPOINT, GEMINI_MODEL
     import requests
 
@@ -103,7 +101,6 @@ def chat_and_speak(message, history, voice_mode, ref_audio, gender, accent, spee
     history.append({"role": "user", "content": message.strip()})
     history.append({"role": "assistant", "content": reply})
 
-    # synthesize reply voice
     audio_file = None
     if voice_mode == "Cloned Voice" and ref_audio:
         audio_file, _ = clone_speech(ref_audio, reply)
