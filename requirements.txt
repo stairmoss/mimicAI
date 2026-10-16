@@ -19,3 +19,6 @@ onnxruntime>=1.14.0
 openvoice-cli
 f5-tts
 gradio>=6.0.0
+fastapi
+uvicorn
+python-multipart

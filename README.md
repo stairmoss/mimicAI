@@ -8,7 +8,7 @@ sdk_version: 6.30.0
 python_version: '3.12'
 app_file: gradio_app.py
 pinned: false
-short_description: Simple zero-shot voice cloning and AI voice chatbot
+short_description: Headless zero-shot voice cloning and TTS REST API
 ---
 
 # <p align="center"><img src="static/logo.svg" width="80" alt="MimicAI Logo"/><br><b>MimicAI</b></p>
