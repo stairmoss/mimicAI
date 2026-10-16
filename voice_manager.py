@@ -1,13 +1,8 @@
-from clonemodel.memory_utils import free_unused_memory
-from clonemodel.preset_manager import list_presets
-from clonemodel.voice_config import check_audio_data_quality
-import gc
 import io
 import json
 import logging
 import os
 import shutil
-import struct
 import subprocess
 import tempfile
 import threading
@@ -19,7 +14,12 @@ from typing import Callable, Dict, List, Optional
 import numpy as np
 import torch
 
+from clonemodel.memory_utils import free_unused_memory
+from clonemodel.preset_manager import list_presets
+from clonemodel.voice_config import check_audio_data_quality
+
 logger = logging.getLogger(__name__)
+
 
 def _is_safe_id(profile_id: Optional[str]) -> bool:
     if not profile_id:
@@ -27,70 +27,68 @@ def _is_safe_id(profile_id: Optional[str]) -> bool:
     import re
     return bool(re.match(r"^[a-zA-Z0-9_-]+$", profile_id))
 
+
 VOICES_DIR = Path(__file__).parent / "voices"
 SHARD_DIR = Path(os.path.expanduser("~/.clonemodel_lite/shards"))
 
 _model_lock = threading.Lock()
-_MimicAI_model = None
-_MimicAI_loaded = False
-_MimicAI_full_model = None
-_MimicAI_full_loaded = False
+_mimic_model = None
+_mimic_loaded = False
+_mimic_full_model = None
+_mimic_full_loaded = False
 
 
 def _load_MimicAI_model():
-    global _MimicAI_model, _MimicAI_loaded
+    global _mimic_model, _mimic_loaded
     with _model_lock:
-        if _MimicAI_loaded:
-            return _MimicAI_model
+        if _mimic_loaded:
+            return _mimic_model
         try:
             from clonemodel.lite.mimicvoice_lite import MimicVoiceLite
             if not SHARD_DIR.exists():
-                logger.warning(f"Shard dir {SHARD_DIR} missing. Model not loaded.")
-                _MimicAI_loaded = True
+                _mimic_loaded = True
                 return None
-            logger.info("Initializing MimicVoice Lite (CPU)...")
             t0 = time.monotonic()
-            _MimicAI_model = MimicVoiceLite.from_pretrained(
+            _mimic_model = MimicVoiceLite.from_pretrained(
                 shard_dir=str(SHARD_DIR), max_memory_gb=3.0,
                 device="cpu", enable_prefetch=True,
             )
-            logger.info(f"MimicVoice Lite ready in {time.monotonic()-t0:.1f}s")
+            logger.info(f"MimicVoice Lite ready in {time.monotonic() - t0:.1f}s")
         except Exception as exc:
-            logger.error(f"Failed to load MimicVoice Lite: {exc}", exc_info=True)
-            _MimicAI_model = None
+            logger.error(f"Failed loading MimicVoice Lite: {exc}", exc_info=True)
+            _mimic_model = None
         finally:
-            _MimicAI_loaded = True
-        return _MimicAI_model
+            _mimic_loaded = True
+        return _mimic_model
 
 
 def _load_MimicAI_full_model():
-    global _MimicAI_full_model, _MimicAI_full_loaded
+    global _mimic_full_model, _mimic_full_loaded
     with _model_lock:
-        if _MimicAI_full_loaded:
-            return _MimicAI_full_model
+        if _mimic_full_loaded:
+            return _mimic_full_model
         try:
             from clonemodel import MimicVoice
 
-            model_name = os.environ.get("MimicAI_MODEL", "k2-fsa/OmniVoice")
+            m_name = os.environ.get("MimicAI_MODEL", "k2-fsa/OmniVoice")
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
             dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
-            logger.info("Initializing full MimicVoice on %s from %s...", device, model_name)
             t0 = time.monotonic()
-            _MimicAI_full_model = MimicVoice.from_pretrained(
-                model_name,
+            _mimic_full_model = MimicVoice.from_pretrained(
+                m_name,
                 device_map=device,
                 torch_dtype=dtype,
                 load_asr=False,
                 local_files_only=True,
             )
-            logger.info("Full MimicVoice ready in %.1fs", time.monotonic() - t0)
+            logger.info(f"Full MimicVoice loaded in {time.monotonic() - t0:.1f}s")
         except Exception as exc:
-            logger.error("Failed to load full MimicVoice: %s", exc, exc_info=True)
-            _MimicAI_full_model = None
+            logger.error(f"Failed loading full MimicVoice: {exc}", exc_info=True)
+            _mimic_full_model = None
         finally:
-            _MimicAI_full_loaded = True
-        return _MimicAI_full_model
+            _mimic_full_loaded = True
+        return _mimic_full_model
 
 
 def _float_audio_to_wav_bytes(audio, sample_rate: int) -> bytes:
@@ -106,15 +104,6 @@ def _float_audio_to_wav_bytes(audio, sample_rate: int) -> bytes:
 
 
 class VoiceManager:
-    """Manages voice profiles and TTS generation.
-
-    TTS priority (generate_tts):
-      1. F5-TTS voice cloning using the selected reference voice.
-      2. MimicVoice / MimicVoice Lite voice cloning.
-      3. OpenVoice tone conversion over local Piper/Kokoro base speech.
-      4. Piper direct local fallback.
-    """
-
     def __init__(self, voices_dir: Optional[str] = None):
         self.voices_dir = Path(voices_dir) if voices_dir else VOICES_DIR
         self.voices_dir.mkdir(parents=True, exist_ok=True)
@@ -124,8 +113,6 @@ class VoiceManager:
             preload()
         except Exception:
             pass
-
-    # -- Profile CRUD ----------------------------------------------------------
 
     def list_voices(self) -> List[Dict]:
         profiles = []
@@ -145,8 +132,7 @@ class VoiceManager:
                 pass
         return profiles
 
-    def create_voice(self, audio_data: bytes, name: str, language: str = "en",
-                     file_ext: str = "webm") -> Dict:
+    def create_voice(self, audio_data: bytes, name: str, language: str = "en", file_ext: str = "webm") -> Dict:
         profile_id = 'v_' + uuid.uuid4().hex[:10]
         profile_dir = self.voices_dir / profile_id
         profile_dir.mkdir(parents=True, exist_ok=True)
@@ -159,17 +145,14 @@ class VoiceManager:
         if wav_path is None:
             raise RuntimeError("Audio conversion failed. Make sure ffmpeg is installed.")
 
-        # Generate Whisper transcript during voice creation (training phase)
         ref_text = ""
         try:
-            logger.info(f"Transcribing new voice profile audio {wav_path} via Whisper...")
             import whisper
             model = whisper.load_model("base")
-            result = model.transcribe(str(wav_path))
-            ref_text = result.get("text", "").strip()
-            logger.info(f"Generated Whisper transcript for {profile_id}: '{ref_text}'")
+            res = model.transcribe(str(wav_path))
+            ref_text = res.get("text", "").strip()
         except Exception as exc:
-            logger.error(f"Whisper transcription failed during voice creation: {exc}")
+            logger.warning(f"Whisper transcription skipped: {exc}")
 
         meta = {
             "name": name,
@@ -185,12 +168,10 @@ class VoiceManager:
             json.dump(meta, f, indent=2)
 
         meta["id"] = profile_id
-        logger.info(f"Created voice profile: {name} ({profile_id})")
         return meta
 
     def delete_voice(self, profile_id: str) -> bool:
         if not _is_safe_id(profile_id):
-            logger.warning(f"Unsafe profile_id rejected in delete_voice: {profile_id}")
             return False
         profile_dir = self.voices_dir / profile_id
         if not profile_dir.exists():
@@ -202,17 +183,15 @@ class VoiceManager:
             _se_cache.pop(ref, None)
         except Exception:
             pass
-        logger.info(f"Deleted voice profile: {profile_id}")
         return True
 
     def get_reference_audio_path(self, profile_id: str) -> Optional[str]:
-        """Retrieve reference audio file path securely."""
         if not _is_safe_id(profile_id):
-            logger.warning(f"Unsafe profile_id rejected in get_reference_audio_path: {profile_id}")
             return None
         profile_dir = self.voices_dir / profile_id
         if not profile_dir.exists():
             return None
+
         meta_path = profile_dir / "metadata.json"
         if meta_path.exists():
             try:
@@ -225,6 +204,7 @@ class VoiceManager:
                     return str(p)
             except (ValueError, Exception):
                 pass
+
         for ext in ("wav", "webm", "mp3", "ogg", "flac"):
             try:
                 p = (profile_dir / f"reference.{ext}").resolve()
@@ -237,7 +217,6 @@ class VoiceManager:
 
     def get_voice_metadata(self, profile_id: str) -> Optional[Dict]:
         if not _is_safe_id(profile_id):
-            logger.warning(f"Unsafe profile_id rejected in get_voice_metadata: {profile_id}")
             return None
         meta_path = self.voices_dir / profile_id / "metadata.json"
         if not meta_path.exists():
@@ -249,8 +228,6 @@ class VoiceManager:
             return meta
         except Exception:
             return None
-
-    # -- TTS Generation --------------------------------------------------------
 
     def generate_tts(
         self,
@@ -266,13 +243,12 @@ class VoiceManager:
         self.last_tts_engine = "none"
 
         if not voice_id and voice_design:
-            result = self._generate_designed_voice(text, voice_design)
-            if result is not None:
-                return result
+            res = self._generate_designed_voice(text, voice_design)
+            if res is not None:
+                return res
 
         if voice_id:
             if not _is_safe_id(voice_id):
-                logger.warning(f"Unsafe voice_id rejected in generate_tts: {voice_id}")
                 if not allow_fallback:
                     return None
                 voice_id = None
@@ -281,29 +257,25 @@ class VoiceManager:
                 if not language or language == "auto":
                     language = profile.get("language", "en")
 
-        # 1. Clone path
+        # 1. clone path
         if prefer_clone and voice_id:
-            logger.info("Running F5-TTS exclusive voice cloning...")
-            result = self._generate_f5_tts(text, voice_id, progress_callback, lightweight=lightweight)
-            if result is not None:
+            res = self._generate_f5_tts(text, voice_id, progress_callback, lightweight=lightweight)
+            if res is not None:
                 self.last_tts_engine = "f5_tts"
-                return result
-
+                return res
             if not allow_fallback:
                 return None
-        # 2. Piper (Forced for everything)
-        piper_result = self._generate_piper(text)
-        if piper_result is not None:
-            self.last_tts_engine = "piper"
-            return piper_result
 
-        logger.info("Falling back to local Piper synthesis engine")
+        # 2. piper local default
+        piper_res = self._generate_piper(text)
+        if piper_res is not None:
+            self.last_tts_engine = "piper"
+            return piper_res
+
         return None
 
     def _generate_designed_voice(self, text: str, design: dict) -> Optional[bytes]:
-        """Synthesize speech using designed voice attributes (zero-shot synthesis via Kokoro)."""
         if not isinstance(design, dict):
-            logger.warning("Invalid voice_design type, must be a dict.")
             return None
 
         gender = str(design.get("gender", "female")).lower()
@@ -311,7 +283,8 @@ class VoiceManager:
             gender = "female"
 
         accent = str(design.get("accent", "us")).lower()
-        if accent == "in": accent = "us"
+        if accent == "in":
+            accent = "us"
         if accent not in ["us", "uk", "jp"]:
             accent = "us"
 
@@ -320,47 +293,38 @@ class VoiceManager:
         except (ValueError, TypeError):
             speed = 1.0
         speed = max(0.5, min(2.0, speed))
-        
-        # Map gender + accent to Kokoro voice
+
         if accent == "uk":
             voice = "bf_emma" if gender == "female" else "bm_george"
             lang = "en-gb"
         elif accent == "jp":
             voice = "jf_alpha"
             lang = "ja"
-        else: # US default
+        else:
             voice = "af_sarah" if gender == "female" else "am_adam"
             lang = "en-us"
-            
+
         try:
             from clone_engine import _get_kokoro
             kokoro = _get_kokoro()
             if kokoro is not None:
-                samples, sample_rate = kokoro.create(text[:500], voice=voice, speed=speed, lang=lang)
+                samples, sr = kokoro.create(text[:500], voice=voice, speed=speed, lang=lang)
                 if samples is not None and len(samples) > 0:
                     self.last_tts_engine = "kokoro"
-                    return _float_audio_to_wav_bytes(samples, sample_rate)
+                    return _float_audio_to_wav_bytes(samples, sr)
         except Exception as exc:
-            logger.warning(f"Voice design synthesis via Kokoro failed: {exc}. Trying Piper design...")
-            
-        # Fallback to Piper with adjusted speed/pitch
+            logger.warning(f"Kokoro design failed: {exc}, trying piper")
+
         try:
-            length_scale = 1.0 / speed if speed > 0 else 1.0
-            noise_scale = 0.667
+            scale = 1.0 / speed if speed > 0 else 1.0
             import piper_tts
             if piper_tts.is_available():
                 self.last_tts_engine = "piper"
-                return piper_tts.synthesize(
-                    text=text[:500],
-                    noise_scale=noise_scale,
-                    length_scale=length_scale,
-                )
+                return piper_tts.synthesize(text=text[:500], noise_scale=0.667, length_scale=scale)
         except Exception:
             pass
-            
-        return None
 
-    # -- F5-TTS ----------------------------------------------------------------
+        return None
 
     def _generate_f5_tts(
         self,
@@ -372,41 +336,34 @@ class VoiceManager:
         try:
             ref_path = self.get_reference_audio_path(voice_id)
             if not ref_path:
-                logger.warning(f"No reference audio for voice {voice_id}")
                 return None
 
-            # Get transcript from metadata, or transcribe if missing
             meta = self.get_voice_metadata(voice_id) or {}
             ref_text = meta.get("transcript")
             if ref_text is None:
                 try:
-                    logger.info(f"Transcribing reference audio {ref_path} via Whisper...")
                     import whisper
                     model = whisper.load_model("base")
-                    result = model.transcribe(str(ref_path))
-                    ref_text = result.get("text", "").strip()
-                    logger.info(f"Whisper transcription: '{ref_text}'")
-                    # Update metadata.json with the transcript
+                    res = model.transcribe(str(ref_path))
+                    ref_text = res.get("text", "").strip()
                     meta["transcript"] = ref_text
-                    meta_path = self.voices_dir / voice_id / "metadata.json"
-                    with open(meta_path, "w") as f:
+                    with open(self.voices_dir / voice_id / "metadata.json", "w") as f:
                         json.dump(meta, f, indent=2)
                 except Exception as exc:
-                    logger.error(f"Failed to transcribe reference audio: {exc}")
+                    logger.warning(f"Whisper transcript fallback failed: {exc}")
                     ref_text = ""
 
-            f5_cli = self._find_executable("f5-tts_infer-cli")
-            if not f5_cli:
-                logger.warning("F5-TTS CLI not found. Install with: pip install f5-tts")
+            cli = self._find_executable("f5-tts_infer-cli")
+            if not cli:
                 return None
 
             if progress_callback:
                 progress_callback("init", 0, 3, "Starting F5-TTS...")
 
-            with tempfile.TemporaryDirectory(prefix="mimicai_f5_") as tmp_dir:
+            with tempfile.TemporaryDirectory(prefix="mimic_f5_") as tmp_dir:
                 out_name = "speech.wav"
                 cmd = [
-                    f5_cli,
+                    cli,
                     "--model", os.environ.get("F5_TTS_MODEL", "F5TTS_v1_Base"),
                     "--ref_audio", ref_path,
                     "--ref_text", ref_text,
@@ -425,26 +382,22 @@ class VoiceManager:
                 if progress_callback:
                     progress_callback("generate", 1, 3, "Generating with F5-TTS...")
 
-                # CPU performance optimization env vars
                 import multiprocessing
-                sub_env = os.environ.copy()
+                env = os.environ.copy()
                 cores = str(max(1, multiprocessing.cpu_count()))
-                sub_env["OMP_NUM_THREADS"] = cores
-                sub_env["MKL_NUM_THREADS"] = cores
+                env["OMP_NUM_THREADS"] = cores
+                env["MKL_NUM_THREADS"] = cores
 
                 proc = subprocess.run(
                     cmd,
                     check=False,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
-                    env=sub_env,
+                    env=env,
                     timeout=int(os.environ.get("F5_TTS_TIMEOUT", "1800")),
                 )
                 if proc.returncode != 0:
-                    logger.warning(
-                        "F5-TTS failed: %s",
-                        proc.stderr.decode("utf-8", errors="ignore")[-2000:],
-                    )
+                    logger.warning(f"F5-TTS exited with code {proc.returncode}")
                     return None
 
                 out_path = Path(tmp_dir) / out_name
@@ -452,7 +405,6 @@ class VoiceManager:
                     wavs = sorted(Path(tmp_dir).rglob("*.wav"))
                     out_path = wavs[-1] if wavs else out_path
                 if not out_path.exists():
-                    logger.warning("F5-TTS finished but no WAV output was found")
                     return None
 
                 if progress_callback:
@@ -464,15 +416,13 @@ class VoiceManager:
             return None
 
     def _find_executable(self, name: str) -> Optional[str]:
-        path = shutil.which(name)
-        if path:
-            return path
+        p = shutil.which(name)
+        if p:
+            return p
         local = Path(__file__).parent / "venv" / "bin" / name
         if local.exists():
             return str(local)
         return None
-
-    # -- MimicVoice -------------------------------------------------------------
 
     def _generate_MimicAI_full(
         self,
@@ -484,7 +434,6 @@ class VoiceManager:
         try:
             ref_path = self.get_reference_audio_path(voice_id)
             if not ref_path:
-                logger.warning(f"No reference audio for voice {voice_id}")
                 return None
 
             if progress_callback:
@@ -505,14 +454,14 @@ class VoiceManager:
                 guidance_scale=2.0,
             )
             audio = audios[0] if isinstance(audios, list) else audios
-            sample_rate = int(getattr(model, "sampling_rate", 24000) or 24000)
+            sr = int(getattr(model, "sampling_rate", 24000) or 24000)
 
             if progress_callback:
                 progress_callback("done", 3, 3, "Full MimicVoice generated speech.")
 
-            return _float_audio_to_wav_bytes(audio, sample_rate)
+            return _float_audio_to_wav_bytes(audio, sr)
         except Exception as exc:
-            logger.error(f"Full MimicVoice generation error: {exc}", exc_info=True)
+            logger.error(f"Full MimicVoice error: {exc}", exc_info=True)
             return None
 
     def _generate_MimicAI_lite(
@@ -525,7 +474,6 @@ class VoiceManager:
         try:
             ref_path = self.get_reference_audio_path(voice_id)
             if not ref_path:
-                logger.warning(f"No reference audio for voice {voice_id}")
                 return None
 
             model = _load_MimicAI_model()
@@ -539,23 +487,16 @@ class VoiceManager:
                 quality="balanced",
                 progress_callback=progress_callback,
             )
-            sample_rate = int(getattr(model, "sampling_rate", 24000) or 24000)
-            return _float_audio_to_wav_bytes(audio, sample_rate)
+            sr = int(getattr(model, "sampling_rate", 24000) or 24000)
+            return _float_audio_to_wav_bytes(audio, sr)
         except Exception as exc:
-            logger.error(f"MimicVoice Lite generation error: {exc}", exc_info=True)
+            logger.error(f"MimicVoice Lite error: {exc}", exc_info=True)
             return None
 
-    # -- Piper TTS (primary local engine) --------------------------------------
-
     def _generate_piper(self, text: str, model_path: Optional[str] = None) -> Optional[bytes]:
-        """Synthesize with tuned Piper params.
-
-        Spec params: noise_scale=0.667, length_scale=1.1, noise_w_scale=0.8
-        """
         try:
             import piper_tts
             if not piper_tts.is_available(model_path):
-                logger.warning(f"Piper model not available for {model_path or 'default'}")
                 return None
 
             return piper_tts.synthesize(
@@ -569,8 +510,6 @@ class VoiceManager:
             logger.warning(f"Piper TTS failed: {exc}")
             return None
 
-    # -- Voice Cloning (Piper + OpenVoice) -------------------------------------
-
     def _generate_cloned(
         self,
         text: str,
@@ -578,47 +517,32 @@ class VoiceManager:
         language: str,
         progress_callback: Optional[Callable] = None,
     ) -> Optional[bytes]:
-        """Three-strategy cloning pipeline.
-
-        A. Custom fine-tuned ONNX in piper_models/{voice_id or name}.onnx
-        B. Bundled Piper base + OpenVoice ToneColorConverter
-        C. Piper direct (no tone cloning) when OpenVoice unavailable
-        """
         try:
             ref_path = self.get_reference_audio_path(voice_id)
             if not ref_path:
-                logger.warning(f"No reference audio for voice {voice_id}")
                 return None
 
             meta = self.get_voice_metadata(voice_id)
             voice_name = meta.get("name", "") if meta else ""
-            piper_models_dir = Path(__file__).parent / "piper_models"
+            piper_dir = Path(__file__).parent / "piper_models"
 
-            custom_model_path = None
-            id_model = piper_models_dir / f"{voice_id}.onnx"
-            name_model = piper_models_dir / f"{voice_name}.onnx"
+            custom_path = None
+            id_model = piper_dir / f"{voice_id}.onnx"
+            name_model = piper_dir / f"{voice_name}.onnx"
 
             if id_model.exists():
-                custom_model_path = str(id_model)
-                logger.info(f"Found custom Piper model by ID: {custom_model_path}")
+                custom_path = str(id_model)
             elif name_model.exists():
-                custom_model_path = str(name_model)
-                logger.info(f"Found custom Piper model by Name: {custom_model_path}")
+                custom_path = str(name_model)
 
-            # Strategy A: custom fine-tuned Piper model
-            if custom_model_path:
+            if custom_path:
                 import piper_tts
-                if piper_tts.is_available(custom_model_path):
-                    return self._generate_piper(text, model_path=custom_model_path)
-                else:
-                    logger.warning(f"Custom model path {custom_model_path} missing files. Falling back.")
+                if piper_tts.is_available(custom_path):
+                    return self._generate_piper(text, model_path=custom_path)
 
-            # Strategy B: OpenVoice ToneColorConverter
             try:
-                from clone_engine import clone_voice, is_available as ce_available
-                if ce_available():
-                    t0 = time.monotonic()
-                    # Pre-process reference audio: VAD trim + volume normalise
+                from clone_engine import clone_voice, is_available as ce_avail
+                if ce_avail():
                     try:
                         import piper_tts
                         clean_ref = piper_tts.preprocess_reference_audio(ref_path)
@@ -634,20 +558,15 @@ class VoiceManager:
                         skip_openvoice=False,
                     )
                     if wav_bytes:
-                        logger.info(f"OpenVoice clone done in {time.monotonic()-t0:.1f}s")
                         return wav_bytes
             except Exception as exc:
                 logger.warning(f"OpenVoice clone error: {exc}")
 
-            # Strategy C: Piper direct
-            logger.info("OpenVoice unavailable -- using Piper direct (no tone cloning)")
             return self._generate_piper(text)
 
         except Exception as exc:
             logger.error(f"Clone generation error: {exc}", exc_info=True)
             return None
-
-    # -- espeak-ng -------------------------------------------------------------
 
     def _generate_espeak(self, text: str, language: str) -> Optional[bytes]:
         espeak_path = shutil.which("espeak-ng") or shutil.which("espeak")
@@ -689,14 +608,7 @@ class VoiceManager:
                 except OSError:
                     pass
 
-    # -- Audio Utilities -------------------------------------------------------
-
     def _convert_to_wav(self, input_path: Path, output_dir: Path) -> Optional[Path]:
-        """Convert recorded audio to 22050 Hz / Mono / 16-bit WAV.
-
-        Also applies loudness normalisation (-20 dBFS) and VAD silence trimming
-        to match Piper/OpenVoice input requirements.
-        """
         wav_path = output_dir / "reference.wav"
 
         try:
@@ -706,10 +618,9 @@ class VoiceManager:
             audio = AudioSegment.from_file(str(input_path))
             audio = audio.set_channels(1).set_frame_rate(22050).set_sample_width(2)
 
-            # Normalise loudness to -20 dBFS
             audio = audio.apply_gain(-20.0 - audio.dBFS)
 
-            # Aggressive VAD trim
+            # trim leading/trailing silence
             chunks = split_on_silence(
                 audio, min_silence_len=300, silence_thresh=-40, keep_silence=100,
             )
@@ -720,12 +631,10 @@ class VoiceManager:
                 clean = clean.apply_gain(-20.0 - clean.dBFS)
                 audio = clean
 
-            audio.export(str(wav_path), format="wav",
-                         parameters=["-acodec", "pcm_s16le"])
-            logger.info(f"Converted & preprocessed to WAV via pydub: {wav_path}")
+            audio.export(str(wav_path), format="wav", parameters=["-acodec", "pcm_s16le"])
             return wav_path
         except Exception as exc:
-            logger.warning(f"pydub conversion/preprocessing failed: {exc}")
+            logger.warning(f"pydub wav conversion failed: {exc}")
 
         ffmpeg_path = shutil.which("ffmpeg")
         if ffmpeg_path:
@@ -735,7 +644,6 @@ class VoiceManager:
                      "-ac", "1", "-ar", "22050", "-sample_fmt", "s16", str(wav_path)],
                     check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 )
-                logger.info(f"Converted to WAV via ffmpeg: {wav_path}")
                 return wav_path
             except Exception as exc:
                 logger.warning(f"ffmpeg conversion failed: {exc}")
