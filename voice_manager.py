@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 import numpy as np
+import requests
 import torch
 
 from clonemodel.memory_utils import free_unused_memory
@@ -243,6 +244,9 @@ class VoiceManager:
         self.last_tts_engine = "none"
 
         if not voice_id and voice_design:
+            res = self._generate_remote_design(text, voice_design)
+            if res is not None:
+                return res
             res = self._generate_designed_voice(text, voice_design)
             if res is not None:
                 return res
@@ -258,6 +262,9 @@ class VoiceManager:
                     language = profile.get("language", "en")
 
         if prefer_clone and voice_id:
+            res = self._generate_remote_clone(text, voice_id, language=language)
+            if res is not None:
+                return res
             res = self._generate_f5_tts(text, voice_id, progress_callback, lightweight=lightweight)
             if res is not None:
                 self.last_tts_engine = "f5_tts"
@@ -270,6 +277,47 @@ class VoiceManager:
             self.last_tts_engine = "piper"
             return piper_res
 
+        return None
+
+    def _generate_remote_clone(self, text: str, voice_id: str, language: str = "en") -> Optional[bytes]:
+        remote_url = os.environ.get("REMOTE_VOICE_API", "https://stairmoss-mimicai.hf.space").rstrip("/")
+        if not remote_url:
+            return None
+        ref_path = self.get_reference_audio_path(voice_id)
+        if not ref_path or not os.path.exists(ref_path):
+            return None
+
+        try:
+            with open(ref_path, "rb") as f:
+                files = {"audio": (os.path.basename(ref_path), f, "audio/wav")}
+                data = {"text": text[:500], "language": language}
+                resp = requests.post(f"{remote_url}/voice/clone", files=files, data=data, timeout=35)
+                if resp.status_code == 200 and len(resp.content) > 100:
+                    self.last_tts_engine = "remote_zerogpu"
+                    return resp.content
+        except Exception as exc:
+            logger.warning(f"Remote clone fallback: {exc}")
+        return None
+
+    def _generate_remote_design(self, text: str, design: dict) -> Optional[bytes]:
+        remote_url = os.environ.get("REMOTE_VOICE_API", "https://stairmoss-mimicai.hf.space").rstrip("/")
+        if not remote_url:
+            return None
+
+        try:
+            payload = {
+                "text": text[:500],
+                "gender": str(design.get("gender", "female")),
+                "accent": str(design.get("accent", "us")),
+                "speed": float(design.get("speed", 1.0)),
+                "pitch": float(design.get("pitch", 1.0)),
+            }
+            resp = requests.post(f"{remote_url}/voice/design", json=payload, timeout=25)
+            if resp.status_code == 200 and len(resp.content) > 100:
+                self.last_tts_engine = "remote_zerogpu"
+                return resp.content
+        except Exception as exc:
+            logger.warning(f"Remote voice design fallback: {exc}")
         return None
 
     def _generate_designed_voice(self, text: str, design: dict) -> Optional[bytes]:

@@ -105,10 +105,10 @@ with gr.Blocks(title="MimicAI Headless API", theme=theme) as demo:
             High-performance zero-shot voice cloning and neural TTS API running on Hugging Face ZeroGPU.
           </p>
           <div style="background:#202124;border:1px solid #3c4043;border-radius:10px;padding:16px;font-family:monospace;font-size:13px;color:#8ab4f8;line-height:1.7;">
-            <div><b>POST</b> /api/clone &nbsp;&nbsp;<span style="color:#9aa0a6;">(multipart/form-data: audio=@sample.wav, text="...")</span></div>
-            <div><b>POST</b> /api/design <span style="color:#9aa0a6;">(JSON: {"text":"...", "gender":"female", "accent":"us"})</span></div>
-            <div><b>POST</b> /api/tts &nbsp;&nbsp;&nbsp;<span style="color:#9aa0a6;">(JSON: {"text":"...", "speed":1.0})</span></div>
-            <div><b>GET</b> &nbsp;/health &nbsp;&nbsp;&nbsp;<span style="color:#9aa0a6;">(Health check and system status)</span></div>
+            <div><b>POST</b> /voice/clone &nbsp;&nbsp;<span style="color:#9aa0a6;">(multipart/form-data: audio=@sample.wav, text="...")</span></div>
+            <div><b>POST</b> /voice/design <span style="color:#9aa0a6;">(JSON: {"text":"...", "gender":"female", "accent":"us"})</span></div>
+            <div><b>POST</b> /voice/tts &nbsp;&nbsp;&nbsp;<span style="color:#9aa0a6;">(JSON: {"text":"...", "speed":1.0})</span></div>
+            <div><b>GET</b> &nbsp;/health &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#9aa0a6;">(Health check and system status)</span></div>
           </div>
         </div>
         """
@@ -153,10 +153,15 @@ def health():
         "status": "online",
         "version": "1.0.0",
         "hardware": "ZeroGPU enabled" if hasattr(spaces, "zero") else "CPU",
+        "endpoints": {
+            "clone": "/voice/clone",
+            "design": "/voice/design",
+            "tts": "/voice/tts",
+        }
     }
 
 
-@demo.app.post("/api/clone")
+@demo.app.post("/voice/clone")
 async def api_clone(
     audio: UploadFile = File(...),
     text: str = Form(...),
@@ -194,7 +199,7 @@ async def api_clone(
             pass
 
 
-@demo.app.post("/api/design")
+@demo.app.post("/voice/design")
 async def api_design(request: Request):
     try:
         content_type = request.headers.get("content-type", "")
@@ -229,8 +234,9 @@ async def api_design(request: Request):
         return JSONResponse({"error": str(exc)}, status_code=500)
 
 
-@demo.app.post("/api/tts")
+@demo.app.post("/voice/tts")
 async def api_tts(request: Request):
+
     try:
         content_type = request.headers.get("content-type", "")
         if "application/json" in content_type:
