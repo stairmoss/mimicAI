@@ -320,9 +320,13 @@ async function sendMessage() {
           updateVoiceSelect();
         }
         const btn = msgEl.querySelector('.tts-btn');
-        // Let the completed message render first, then start synthesis without
-        // depending on the action button's event handler.
-        window.setTimeout(() => { void playTts(aiText, btn, true); }, 0);
+        // Use the same handler as the Listen control.  Manual Listen reaches
+        // the TTS endpoint reliably, so Auto Speak must not take a separate
+        // code path with subtly different state or arguments.
+        window.setTimeout(() => {
+          if (btn) btn.click();
+          else void playTts(aiText, null, true);
+        }, 0);
       }
     } else {
       msgEl.remove();
