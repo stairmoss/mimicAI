@@ -308,14 +308,21 @@ async function sendMessage() {
     if (aiText.trim()) {
       state.messages.push({ role: 'assistant', content: aiText });
       addActions(msgEl, aiText);
-      if (state.autoSpeak) {
+      // Read the live control here instead of a value captured at page load.
+      // This keeps Auto Speak reliable if localStorage was changed in another
+      // tab or the toggle was changed while the streaming reply was pending.
+      const autoSpeakEnabled = $('#autospeak-toggle')?.checked ?? state.autoSpeak;
+      state.autoSpeak = autoSpeakEnabled;
+      if (autoSpeakEnabled) {
         if (!state.selectedVoice && state.voices.length > 0) {
           state.selectedVoice = state.voices[0].id;
           persistVoice();
           updateVoiceSelect();
         }
         const btn = msgEl.querySelector('.tts-btn');
-        playTts(aiText, btn, true);
+        // Let the completed message render first, then start synthesis without
+        // depending on the action button's event handler.
+        window.setTimeout(() => { void playTts(aiText, btn, true); }, 0);
       }
     } else {
       msgEl.remove();
