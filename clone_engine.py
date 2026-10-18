@@ -31,8 +31,13 @@ def _get_converter():
             ckpt_path = ckpt_dir / "checkpoint.pth"
             cfg_path = ckpt_dir / "config.json"
 
-            if not ckpt_path.exists() or not cfg_path.exists():
+            if not ckpt_path.exists() or not cfg_path.exists() or ckpt_path.stat().st_size < 50_000_000:
                 ckpt_dir.mkdir(parents=True, exist_ok=True)
+                if ckpt_path.exists() and ckpt_path.stat().st_size < 50_000_000:
+                    try:
+                        ckpt_path.unlink()
+                    except Exception:
+                        pass
                 download_checkpoint(str(ckpt_dir))
 
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
