@@ -24,7 +24,7 @@ vm = VoiceManager()
 
 
 @spaces.GPU
-def run_voice_clone(ref_audio: str, text: str, language: str = "en") -> str:
+def run_voice_clone(ref_audio: str, text: str, gender: str = "male", language: str = "en") -> str:
     if not ref_audio or not text or not text.strip():
         return None
     clean_ref = piper_tts.preprocess_reference_audio(ref_audio)
@@ -32,6 +32,7 @@ def run_voice_clone(ref_audio: str, text: str, language: str = "en") -> str:
         text=text.strip()[:500],
         ref_audio_path=clean_ref,
         language=language,
+        gender=gender,
     )
     if not audio_bytes:
         audio_bytes = piper_tts.synthesize(text=text.strip()[:500])
@@ -117,9 +118,10 @@ with gr.Blocks(title="MimicAI Headless API", theme=theme) as demo:
     with gr.Row(visible=False):
         c_audio = gr.Audio(type="filepath")
         c_text = gr.Textbox()
+        c_gender = gr.Textbox(value="male")
         c_out = gr.Audio()
         c_btn = gr.Button()
-        c_btn.click(fn=run_voice_clone, inputs=[c_audio, c_text], outputs=[c_out], api_name="clone")
+        c_btn.click(fn=run_voice_clone, inputs=[c_audio, c_text, c_gender], outputs=[c_out], api_name="clone")
 
         d_text = gr.Textbox()
         d_gender = gr.Textbox(value="female")
@@ -165,6 +167,7 @@ def health():
 async def api_clone(
     audio: UploadFile = File(...),
     text: str = Form(...),
+    gender: str = Form("male"),
     language: str = Form("en"),
 ):
     if not text or not text.strip():
@@ -177,7 +180,7 @@ async def api_clone(
         raw_tmp.write(content)
         raw_tmp.close()
 
-        out_path = run_voice_clone(raw_tmp.name, text.strip(), language)
+        out_path = run_voice_clone(raw_tmp.name, text.strip(), gender=gender, language=language)
         if not out_path or not os.path.exists(out_path):
             return JSONResponse({"error": "Voice cloning failed"}, status_code=500)
 

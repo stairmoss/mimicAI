@@ -426,6 +426,29 @@ def delete_voice(voice_id):
     return jsonify({"error": "Voice not found"}), 404
 
 
+@app.route("/api/voices/<voice_id>/gender", methods=["POST"])
+def update_voice_gender(voice_id):
+    profile = voice_manager.get_voice_metadata(voice_id)
+    if not profile:
+        return jsonify({"error": "Voice not found"}), 404
+    data = request.get_json(silent=True) or {}
+    gender = str(data.get("gender", "male")).lower().strip()
+    if gender not in ("male", "female"):
+        gender = "male"
+    meta_path = voice_manager.voices_dir / voice_id / "metadata.json"
+    if meta_path.exists():
+        try:
+            with open(meta_path) as f:
+                meta = json.load(f)
+            meta["gender"] = gender
+            with open(meta_path, "w") as f:
+                json.dump(meta, f, indent=2)
+            return jsonify({"success": True, "gender": gender})
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+    return jsonify({"error": "Metadata not found"}), 404
+
+
 @app.route("/api/voices/<voice_id>/preview", methods=["POST"])
 def preview_voice(voice_id):
     profile = voice_manager.get_voice_metadata(voice_id)

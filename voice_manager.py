@@ -117,7 +117,7 @@ class VoiceManager:
 
     def list_voices(self) -> List[Dict]:
         profiles = []
-        for d in sorted(self.voices_dir.iterdir()):
+        for d in self.voices_dir.iterdir():
             if not d.is_dir():
                 continue
             meta_path = d / "metadata.json"
@@ -131,6 +131,7 @@ class VoiceManager:
                 profiles.append(meta)
             except Exception:
                 pass
+        profiles.sort(key=lambda x: str(x.get("created_at", "")), reverse=True)
         return profiles
 
     def create_voice(self, audio_data: bytes, name: str, language: str = "en", file_ext: str = "webm", gender: str = "male") -> Dict:
@@ -283,6 +284,22 @@ class VoiceManager:
             if not allow_fallback:
                 return None
 
+        # Gender-matched fallback so male speakers NEVER hear a female voice
+        profile = self.get_voice_metadata(voice_id) or {} if voice_id else {}
+        gender = profile.get("gender", "male")
+        try:
+            from clone_engine import _get_kokoro
+            kokoro = _get_kokoro()
+            if kokoro is not None:
+                is_male = str(gender).lower() in ("male", "m")
+                voice_name = "am_adam" if is_male else "af_sarah"
+                samples, sr = kokoro.create(text[:500], voice=voice_name, speed=1.0, lang="en-us")
+                if samples is not None and len(samples) > 0:
+                    self.last_tts_engine = "kokoro"
+                    return _float_audio_to_wav_bytes(samples, sr)
+        except Exception as exc:
+            logger.warning(f"Kokoro gender fallback failed: {exc}")
+
         piper_res = self._generate_piper(text)
         if piper_res is not None:
             self.last_tts_engine = "piper"
@@ -295,6 +312,9 @@ class VoiceManager:
         if not ref_path or not os.path.exists(ref_path):
             return None
 
+        profile = self.get_voice_metadata(voice_id) or {}
+        gender = profile.get("gender", "male")
+
         try:
             from gradio_client import Client, handle_file
             hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
@@ -305,11 +325,22 @@ class VoiceManager:
                 except Exception:
                     pass
             client = Client("stairmoss/MimicAI", token=hf_token)
-            res_path = client.predict(
-                ref_audio=handle_file(str(ref_path)),
-                text=text[:500],
-                api_name="/clone"
-            )
+            try:
+                res_path = client.predict(
+                    ref_audio=handle_file(str(ref_path)),
+                    text=text[:500],
+                    gender=gender,
+                    api_name="/clone"
+                )
+            except Exception as e:
+                if "gender" in str(e).lower():
+                    res_path = client.predict(
+                        ref_audio=handle_file(str(ref_path)),
+                        text=text[:500],
+                        api_name="/clone"
+                    )
+                else:
+                    raise
             if res_path and os.path.exists(res_path):
                 with open(res_path, "rb") as f:
                     data = f.read()
@@ -328,7 +359,7 @@ class VoiceManager:
                     headers["Authorization"] = f"Bearer {hf_token}"
                 with open(ref_path, "rb") as f:
                     files = {"audio": (os.path.basename(ref_path), f, "audio/wav")}
-                    data = {"text": text[:500], "language": language}
+                    data = {"text": text[:500], "language": language, "gender": gender}
                     resp = requests.post(f"{remote_url}/voice/clone", files=files, data=data, headers=headers, timeout=15)
                     if resp.status_code == 200 and len(resp.content) > 100:
                         self.last_tts_engine = "remote_zerogpu"

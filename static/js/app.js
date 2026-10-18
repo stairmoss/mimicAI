@@ -4,6 +4,7 @@ const API = {
   voiceRecord: '/api/voices/record',
   voiceDelete: (id) => `/api/voices/${id}/delete`,
   voicePreview: (id) => `/api/voices/${id}/preview`,
+  voiceGender: (id) => `/api/voices/${id}/gender`,
   tts: '/api/tts',
   ttsAsync: '/api/tts/async',
   ttsAsyncStatus: (id) => `/api/tts/async/${id}/status`,
@@ -30,13 +31,13 @@ const state = {
   recordedChunks: [],
   recordingTimer: null,
   recordingSeconds: 0,
-  autoSpeak: false,
+  autoSpeak: true,
   lightweightTts: false,
   currentAudio: null,
   theme: "dark",
   voiceMode: 'profiles',
   voiceDesign: {
-    gender: 'female',
+    gender: 'male',
     accent: 'us',
     speed: 1.0,
     pitch: 1.0,
@@ -48,7 +49,8 @@ const $$ = (s) => document.querySelectorAll(s);
 
 document.addEventListener('DOMContentLoaded', () => {
   state.selectedVoice = localStorage.getItem(KEYS.voice) || null;
-  state.autoSpeak = localStorage.getItem(KEYS.autoSpeak) === 'true';
+  const savedAutoSpeak = localStorage.getItem(KEYS.autoSpeak);
+  state.autoSpeak = savedAutoSpeak !== null ? savedAutoSpeak === 'true' : true;
   state.lightweightTts = localStorage.getItem(KEYS.lightweightTts) === 'true';
   state.theme = localStorage.getItem(KEYS.theme) || 'dark';
   document.documentElement.setAttribute('data-theme', state.theme);
@@ -69,7 +71,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+function primeAudio() {
+  const sa = $('#speech-audio');
+  if (sa) {
+    if (!sa.src) {
+      sa.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
+    }
+    sa.play().then(() => { sa.pause(); }).catch(() => {});
+  }
+  if (window._audioContext && window._audioContext.state === 'suspended') {
+    window._audioContext.resume().catch(() => {});
+  }
+}
+
 function bindEvents() {
+  window.addEventListener('pointerdown', primeAudio, { once: true });
+  window.addEventListener('keydown', primeAudio, { once: true });
   $('#send-btn').addEventListener('click', sendMessage);
   $('#chat-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
@@ -212,16 +229,7 @@ async function sendMessage() {
   const text = input.value.trim();
   if (!text || state.isGenerating) return;
 
-  if (state.autoSpeak) {
-    try {
-      if (!window._audioContext) {
-        window._audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (window._audioContext.state === 'suspended') {
-        window._audioContext.resume();
-      }
-    } catch (_) {}
-  }
+  primeAudio();
 
   addMsg('user', text);
   input.value = '';
@@ -285,16 +293,13 @@ async function sendMessage() {
       state.messages.push({ role: 'assistant', content: aiText });
       addActions(msgEl, aiText);
       if (state.autoSpeak) {
-        if (state.voiceMode === 'profiles' && !state.selectedVoice && state.voices.length > 0) {
+        if (!state.selectedVoice && state.voices.length > 0) {
           state.selectedVoice = state.voices[0].id;
           persistVoice();
           updateVoiceSelect();
         }
-        const canSpeak = state.voiceMode === 'design' || (state.voiceMode === 'profiles' && state.selectedVoice);
-        if (canSpeak) {
-          const btn = msgEl.querySelector('.tts-btn');
-          if (btn) playTts(aiText, btn);
-        }
+        const btn = msgEl.querySelector('.tts-btn');
+        playTts(aiText, btn, true);
       }
     } else {
       msgEl.remove();
@@ -447,13 +452,19 @@ function scroll() {
   requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
 }
 
-async function playTts(text, btn) {
-  if (!text || !btn) return;
-  const isProfiles = state.voiceMode === 'profiles';
-  const voiceId = isProfiles ? (state.selectedVoice || null) : null;
+async function playTts(text, btn, isAutoSpeak = false) {
+  if (!text) return;
+  let isProfiles = state.voiceMode === 'profiles';
+  let voiceId = isProfiles ? (state.selectedVoice || null) : null;
   if (isProfiles && !voiceId) {
-    toast('Select a voice profile or switch to Design Voice', 'info');
-    return;
+    if (state.voices.length > 0) {
+      voiceId = state.voices[0].id;
+      state.selectedVoice = voiceId;
+      persistVoice();
+      updateVoiceSelect();
+    } else {
+      isProfiles = false;
+    }
   }
 
   const voiceDesign = isProfiles ? null : state.voiceDesign;
@@ -462,12 +473,22 @@ async function playTts(text, btn) {
     const prof = state.voices.find(v => v.id === voiceId);
     lang = prof?.language || 'en';
   } else {
-    lang = voiceDesign.accent === 'jp' ? 'ja' : 'en';
+    lang = voiceDesign?.accent === 'jp' ? 'ja' : 'en';
   }
 
-  const orig = btn.innerHTML;
-  btn.innerHTML = '⏳ Loading…';
-  btn.disabled = true;
+  const orig = btn ? btn.innerHTML : 'Listen';
+  if (btn) {
+    btn.innerHTML = '⏳ Loading…';
+    btn.disabled = true;
+  }
+
+  let statusPill = btn?.parentElement?.querySelector('.speaking-status-pill');
+  if (!statusPill && btn?.parentElement) {
+    statusPill = document.createElement('div');
+    statusPill.className = 'speaking-status-pill loading';
+    statusPill.innerHTML = '<span>⏳ Synthesizing voice…</span>';
+    btn.parentElement.appendChild(statusPill);
+  }
 
   try {
     const res = await fetch(API.tts, {
@@ -481,7 +502,7 @@ async function playTts(text, btn) {
         lightweight: state.lightweightTts,
         strict_clone: false,
         voice_design: voiceDesign,
-        speed_rate: state.voiceDesign.speed,
+        speed_rate: state.voiceDesign?.speed || 1.0,
       }),
     });
 
@@ -494,8 +515,8 @@ async function playTts(text, btn) {
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
 
-    let playerBox = btn.parentElement.querySelector('.audio-player-container');
-    if (!playerBox) {
+    let playerBox = btn?.parentElement?.querySelector('.audio-player-container');
+    if (!playerBox && btn?.parentElement) {
       playerBox = document.createElement('div');
       playerBox.className = 'audio-player-container';
       playerBox.style.marginTop = '10px';
@@ -503,20 +524,66 @@ async function playTts(text, btn) {
       btn.parentElement.appendChild(playerBox);
     }
 
-    playerBox.innerHTML = `<audio controls src="${url}" style="height:32px; width:100%; outline:none; border-radius:16px;"></audio>`;
-    const audio = playerBox.querySelector('audio');
+    if (playerBox) {
+      playerBox.innerHTML = `<audio controls src="${url}" style="height:32px; width:100%; outline:none; border-radius:16px;"></audio>`;
+    }
 
-    setCurrentAudio(audio);
-    btn.innerHTML = '▶ Replay Speech';
-    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 2000);
+    const inlineAudio = playerBox?.querySelector('audio');
+    const speechAudio = $('#speech-audio');
+    const activeAudio = speechAudio || inlineAudio;
 
-    audio.controlsList = 'nodownload';
-    audio.play().catch(e => { toast('Playback failed: ' + e.message, 'error'); });
+    if (statusPill) {
+      statusPill.className = 'speaking-status-pill';
+      statusPill.innerHTML = `
+        <span class="speaking-wave"><span></span><span></span><span></span><span></span></span>
+        <span>🔊 Speaking aloud…</span>
+      `;
+    }
+
+    if (speechAudio) {
+      speechAudio.src = url;
+    }
+
+    setCurrentAudio(activeAudio);
+
+    const onFinish = () => {
+      if (statusPill) statusPill.remove();
+      if (btn) {
+        btn.innerHTML = '▶ Replay Speech';
+        btn.disabled = false;
+      }
+    };
+
+    activeAudio.onended = onFinish;
+    activeAudio.onpause = () => {
+      if (statusPill && activeAudio.ended) statusPill.remove();
+    };
+
+    if (btn) {
+      btn.innerHTML = '🔊 Speaking…';
+      btn.disabled = false;
+    }
+
+    try {
+      await activeAudio.play();
+    } catch (e) {
+      console.warn('Autoplay prevented:', e);
+      if (inlineAudio && inlineAudio !== activeAudio) {
+        try { await inlineAudio.play(); } catch (_) {}
+      }
+      if (statusPill) {
+        statusPill.className = 'speaking-status-pill';
+        statusPill.innerHTML = '<span>▶ Click Listen to hear speech</span>';
+      }
+    }
 
     if (engine) toast(`Generated via ${engine}`, 'info');
   } catch (err) {
-    btn.innerHTML = orig;
-    btn.disabled = false;
+    if (statusPill) statusPill.remove();
+    if (btn) {
+      btn.innerHTML = orig;
+      btn.disabled = false;
+    }
     toast(err.message, 'error');
   }
 }
@@ -539,26 +606,51 @@ function renderVoiceList() {
     return;
   }
   state.voices.forEach(v => {
+    const isFem = (v.gender || '').toLowerCase() === 'female';
     const li = document.createElement('li');
     li.className = `voice-item ${state.selectedVoice === v.id ? 'active' : ''}`;
     li.innerHTML = `
       <div class="voice-avatar">${v.name.charAt(0).toUpperCase()}</div>
       <div class="voice-info">
         <div class="voice-name">${esc(v.name)}</div>
-        <div class="voice-lang">${v.language || 'en'} · Reference</div>
+        <div class="voice-lang">
+          ${v.language || 'en'} · 
+          <span class="voice-gender-pill" title="Click to toggle Male/Female" style="cursor:pointer;padding:1px 6px;border-radius:10px;background:${isFem ? 'rgba(242,139,130,0.2)' : 'rgba(138,180,248,0.2)'};color:${isFem ? '#f28b82' : '#8ab4f8'};border:1px solid ${isFem ? '#f28b82' : '#8ab4f8'};font-size:10px;font-weight:600;">
+            ${isFem ? '♀ Female' : '♂ Male'}
+          </span>
+        </div>
       </div>
       <div class="voice-actions">
         <button class="voice-act-btn preview" title="Preview">▶</button>
         <button class="voice-act-btn delete" title="Delete">✕</button>
       </div>`;
     li.addEventListener('click', (e) => {
-      if (e.target.closest('.voice-act-btn')) return;
+      if (e.target.closest('.voice-act-btn') || e.target.closest('.voice-gender-pill')) return;
       state.selectedVoice = v.id;
       $('#voice-select').value = v.id;
       persistVoice();
       renderVoiceList();
-      toast(`Voice: ${v.name}`, 'success');
+      toast(`Voice: ${v.name} (${v.gender || 'male'})`, 'success');
     });
+    const gPill = li.querySelector('.voice-gender-pill');
+    if (gPill) {
+      gPill.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const nextGender = isFem ? 'male' : 'female';
+        try {
+          await fetch(API.voiceGender(v.id), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gender: nextGender }),
+          });
+          v.gender = nextGender;
+          toast(`${v.name} set to ${nextGender}`, 'success');
+          renderVoiceList();
+        } catch (err) {
+          toast('Error changing gender: ' + err.message, 'error');
+        }
+      });
+    }
     li.querySelector('.preview').addEventListener('click', (e) => { e.stopPropagation(); previewVoice(v, e.currentTarget); });
     li.querySelector('.delete').addEventListener('click', (e) => { e.stopPropagation(); deleteVoice(v.id); });
     list.appendChild(li);

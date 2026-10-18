@@ -27,19 +27,19 @@ def _get_converter():
             from openvoice_cli.api import ToneColorConverter
             from openvoice_cli.downloader import download_checkpoint
 
-            pkg_dir = os.path.dirname(os.path.realpath(__import__("openvoice_cli").__file__))
-            ckpt_dir = os.path.join(pkg_dir, "checkpoints", "converter")
+            ckpt_dir = Path(os.path.expanduser("~/.cache/openvoice/converter"))
+            ckpt_path = ckpt_dir / "checkpoint.pth"
+            cfg_path = ckpt_dir / "config.json"
 
-            if not os.path.exists(os.path.join(ckpt_dir, "checkpoint.pth")):
-                os.makedirs(ckpt_dir, exist_ok=True)
-                download_checkpoint(ckpt_dir)
+            if not ckpt_path.exists() or not cfg_path.exists():
+                ckpt_dir.mkdir(parents=True, exist_ok=True)
+                download_checkpoint(str(ckpt_dir))
 
+            device = "cuda:0" if torch.cuda.is_available() else "cpu"
             t0 = time.monotonic()
-            conv = ToneColorConverter(
-                os.path.join(ckpt_dir, "config.json"), device="cpu"
-            )
-            conv.load_ckpt(os.path.join(ckpt_dir, "checkpoint.pth"))
-            logger.info(f"ToneColorConverter ready in {time.monotonic() - t0:.1f}s")
+            conv = ToneColorConverter(str(cfg_path), device=device)
+            conv.load_ckpt(str(ckpt_path))
+            logger.info(f"ToneColorConverter ready on {device} in {time.monotonic() - t0:.1f}s")
             _converter = conv
             return conv
         except Exception as exc:
@@ -268,7 +268,7 @@ def _generate_base_tts(text: str, language: str, piper_model_path: Optional[str]
                     import librosa
 
                     wav_path = tempfile.mktemp(suffix=".wav", prefix="mimic_base_")
-                    samples, sr = kokoro.create(text[:500], voice="af_sarah", speed=1.0, lang="en-us")
+                    samples, sr = kokoro.create(text[:500], voice=voice_name, speed=1.0, lang=kokoro_lang)
                     if samples is not None and len(samples) > 0:
                         if sr != 22050:
                             samples = librosa.resample(samples, orig_sr=sr, target_sr=22050)
