@@ -162,12 +162,23 @@ def _get_kokoro():
             return _kokoro_model
         try:
             from kokoro_onnx import Kokoro
-            m_path = "/mnt/18A660FBA660DB30/voiceclone_AI/mimicAI/kokoro_models/kokoro-v1.0.int8.onnx"
-            v_path = "/mnt/18A660FBA660DB30/voiceclone_AI/mimicAI/kokoro_models/voices-v1.0.bin"
-            if not os.path.exists(m_path) or not os.path.exists(v_path):
-                return None
+            base_dir = Path(__file__).parent
+            m_path = base_dir / "kokoro_models" / "kokoro-v1.0.int8.onnx"
+            v_path = base_dir / "kokoro_models" / "voices-v1.0.bin"
+            if not m_path.exists() or not v_path.exists():
+                try:
+                    import urllib.request
+                    os.makedirs(base_dir / "kokoro_models", exist_ok=True)
+                    if not m_path.exists():
+                        urllib.request.urlretrieve("https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.int8.onnx", str(m_path))
+                    if not v_path.exists():
+                        urllib.request.urlretrieve("https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin", str(v_path))
+                except Exception as exc:
+                    logger.warning(f"Kokoro auto-download failed: {exc}")
+                    return None
+
             t0 = time.monotonic()
-            _kokoro_model = Kokoro(m_path, v_path)
+            _kokoro_model = Kokoro(str(m_path), str(v_path))
             logger.info(f"Kokoro loaded in {time.monotonic() - t0:.1f}s")
             return _kokoro_model
         except Exception as e:

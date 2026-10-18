@@ -265,10 +265,18 @@ class VoiceManager:
             res = self._generate_remote_clone(text, voice_id, language=language)
             if res is not None:
                 return res
-            res = self._generate_f5_tts(text, voice_id, progress_callback, lightweight=lightweight)
-            if res is not None:
-                self.last_tts_engine = "f5_tts"
-                return res
+
+            ref_path = self.get_reference_audio_path(voice_id)
+            if ref_path and os.path.exists(ref_path):
+                try:
+                    from clone_engine import clone_voice
+                    local_clone = clone_voice(text=text, ref_audio_path=ref_path, language=language)
+                    if local_clone:
+                        self.last_tts_engine = "openvoice"
+                        return local_clone
+                except Exception as exc:
+                    logger.warning(f"Local clone error: {exc}")
+
             if not allow_fallback:
                 return None
 
@@ -280,23 +288,39 @@ class VoiceManager:
         return None
 
     def _generate_remote_clone(self, text: str, voice_id: str, language: str = "en") -> Optional[bytes]:
-        remote_url = os.environ.get("REMOTE_VOICE_API", "https://stairmoss-mimicai.hf.space").rstrip("/")
-        if not remote_url:
-            return None
         ref_path = self.get_reference_audio_path(voice_id)
         if not ref_path or not os.path.exists(ref_path):
             return None
 
         try:
-            with open(ref_path, "rb") as f:
-                files = {"audio": (os.path.basename(ref_path), f, "audio/wav")}
-                data = {"text": text[:500], "language": language}
-                resp = requests.post(f"{remote_url}/voice/clone", files=files, data=data, timeout=35)
-                if resp.status_code == 200 and len(resp.content) > 100:
+            from gradio_client import Client, handle_file
+            client = Client("stairmoss/MimicAI")
+            res_path = client.predict(
+                ref_audio=handle_file(str(ref_path)),
+                text=text[:500],
+                api_name="/clone"
+            )
+            if res_path and os.path.exists(res_path):
+                with open(res_path, "rb") as f:
+                    data = f.read()
+                if len(data) > 100:
                     self.last_tts_engine = "remote_zerogpu"
-                    return resp.content
+                    return data
         except Exception as exc:
-            logger.warning(f"Remote clone fallback: {exc}")
+            logger.warning(f"Remote clone via Gradio client: {exc}")
+
+        remote_url = os.environ.get("REMOTE_VOICE_API", "https://stairmoss-mimicai.hf.space").rstrip("/")
+        if remote_url:
+            try:
+                with open(ref_path, "rb") as f:
+                    files = {"audio": (os.path.basename(ref_path), f, "audio/wav")}
+                    data = {"text": text[:500], "language": language}
+                    resp = requests.post(f"{remote_url}/voice/clone", files=files, data=data, timeout=15)
+                    if resp.status_code == 200 and len(resp.content) > 100:
+                        self.last_tts_engine = "remote_zerogpu"
+                        return resp.content
+            except Exception as exc:
+                logger.warning(f"Remote clone via HTTP: {exc}")
         return None
 
     def _generate_remote_design(self, text: str, design: dict) -> Optional[bytes]:
@@ -312,7 +336,7 @@ class VoiceManager:
                 "speed": float(design.get("speed", 1.0)),
                 "pitch": float(design.get("pitch", 1.0)),
             }
-            resp = requests.post(f"{remote_url}/voice/design", json=payload, timeout=25)
+            resp = requests.post(f"{remote_url}/voice/design", json=payload, timeout=15)
             if resp.status_code == 200 and len(resp.content) > 100:
                 self.last_tts_engine = "remote_zerogpu"
                 return resp.content
