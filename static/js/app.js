@@ -212,6 +212,17 @@ async function sendMessage() {
   const text = input.value.trim();
   if (!text || state.isGenerating) return;
 
+  if (state.autoSpeak) {
+    try {
+      if (!window._audioContext) {
+        window._audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (window._audioContext.state === 'suspended') {
+        window._audioContext.resume();
+      }
+    } catch (_) {}
+  }
+
   addMsg('user', text);
   input.value = '';
   input.style.height = 'auto';
@@ -273,9 +284,17 @@ async function sendMessage() {
     if (aiText.trim()) {
       state.messages.push({ role: 'assistant', content: aiText });
       addActions(msgEl, aiText);
-      if (state.autoSpeak && state.selectedVoice) {
-        const btn = msgEl.querySelector('.tts-btn');
-        if (btn) playTts(aiText, btn);
+      if (state.autoSpeak) {
+        if (state.voiceMode === 'profiles' && !state.selectedVoice && state.voices.length > 0) {
+          state.selectedVoice = state.voices[0].id;
+          persistVoice();
+          updateVoiceSelect();
+        }
+        const canSpeak = state.voiceMode === 'design' || (state.voiceMode === 'profiles' && state.selectedVoice);
+        if (canSpeak) {
+          const btn = msgEl.querySelector('.tts-btn');
+          if (btn) playTts(aiText, btn);
+        }
       }
     } else {
       msgEl.remove();
@@ -559,6 +578,10 @@ function updateVoiceSelect() {
     const ok = state.voices.some(v => v.id === state.selectedVoice);
     if (ok) sel.value = state.selectedVoice;
     else { state.selectedVoice = null; sel.value = ''; persistVoice(); }
+  } else if (state.voices.length > 0) {
+    state.selectedVoice = state.voices[0].id;
+    sel.value = state.selectedVoice;
+    persistVoice();
   }
 }
 
@@ -731,6 +754,7 @@ async function saveVoice() {
   fd.append('audio', blob, `recording.${ext}`);
   fd.append('name', name);
   fd.append('language', lang || 'en');
+  fd.append('gender', $('#voice-gender')?.value || 'male');
 
   const btn = $('#save-voice-btn');
   btn.disabled = true;

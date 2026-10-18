@@ -397,6 +397,7 @@ def record_voice():
     audio_file = request.files["audio"]
     name = request.form.get("name", "Untitled Voice").strip()
     lang = request.form.get("language", "en").strip()
+    gender = request.form.get("gender", "male").strip()
 
     valid_name, name_res = validate_profile_name(name)
     if not valid_name:
@@ -412,7 +413,7 @@ def record_voice():
     ext = fn.rsplit(".", 1)[-1] if "." in fn else "webm"
 
     try:
-        profile = voice_manager.create_voice(audio_data=data, name=name, language=lang, file_ext=ext)
+        profile = voice_manager.create_voice(audio_data=data, name=name, language=lang, file_ext=ext, gender=gender)
         return jsonify({"success": True, "voice": profile})
     except Exception as exc:
         return _error_response(exc, "Voice creation failed")

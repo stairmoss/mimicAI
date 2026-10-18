@@ -85,6 +85,7 @@ def clone_voice(
     text: str,
     ref_audio_path: str,
     language: str = "en",
+    gender: Optional[str] = None,
     progress_callback=None,
     piper_model_path: Optional[str] = None,
     skip_openvoice: bool = False,
@@ -95,6 +96,17 @@ def clone_voice(
                 progress_callback(phase, step, total, msg)
             except Exception:
                 pass
+
+    if not gender and ref_audio_path:
+        try:
+            m_file = Path(ref_audio_path).parent / "metadata.json"
+            if m_file.exists():
+                with open(m_file) as f:
+                    gender = json.load(f).get("gender")
+        except Exception:
+            pass
+    if not gender:
+        gender = "male"
 
     base_wav = None
     out_wav = None
@@ -108,7 +120,7 @@ def clone_voice(
                 return None
 
         progress("tts", 1, 4, "Generating base speech...")
-        base_wav = _generate_base_tts(text, language, piper_model_path)
+        base_wav = _generate_base_tts(text, language, piper_model_path, gender=gender)
         if base_wav is None:
             return None
 
@@ -186,20 +198,21 @@ def _get_kokoro():
             return None
 
 
-def _generate_base_tts(text: str, language: str, piper_model_path: Optional[str] = None) -> Optional[str]:
+def _generate_base_tts(text: str, language: str, piper_model_path: Optional[str] = None, gender: str = "male") -> Optional[str]:
     lang = str(language).lower().strip()
-    voice_name = "af_sarah"
+    is_male = str(gender).lower() in ("male", "m")
+    voice_name = "am_adam" if is_male else "af_sarah"
     kokoro_lang = "en-us"
     has_kokoro = False
 
-    if lang in ("en", "en-us", "us"):
-        voice_name, kokoro_lang, has_kokoro = "af_sarah", "en-us", True
+    if lang in ("en", "en-us", "us", "hi", "hindi", "en-in"):
+        voice_name, kokoro_lang, has_kokoro = ("am_adam" if is_male else "af_sarah"), "en-us", True
     elif lang in ("en-gb", "gb", "uk"):
-        voice_name, kokoro_lang, has_kokoro = "bf_emma", "en-gb", True
+        voice_name, kokoro_lang, has_kokoro = ("bm_george" if is_male else "bf_emma"), "en-gb", True
     elif lang in ("ja", "jp", "japanese"):
-        voice_name, kokoro_lang, has_kokoro = "jf_alpha", "ja", True
+        voice_name, kokoro_lang, has_kokoro = ("jm_kumo" if is_male else "jf_alpha"), "ja", True
     elif lang in ("zh", "cn", "chinese"):
-        voice_name, kokoro_lang, has_kokoro = "zf_xiaobei", "zh", True
+        voice_name, kokoro_lang, has_kokoro = ("zm_yunjian" if is_male else "zf_xiaobei"), "zh", True
 
     try:
         if piper_model_path and os.path.exists(piper_model_path):

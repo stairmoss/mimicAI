@@ -133,7 +133,7 @@ class VoiceManager:
                 pass
         return profiles
 
-    def create_voice(self, audio_data: bytes, name: str, language: str = "en", file_ext: str = "webm") -> Dict:
+    def create_voice(self, audio_data: bytes, name: str, language: str = "en", file_ext: str = "webm", gender: str = "male") -> Dict:
         profile_id = 'v_' + uuid.uuid4().hex[:10]
         profile_dir = self.voices_dir / profile_id
         profile_dir.mkdir(parents=True, exist_ok=True)
@@ -158,6 +158,7 @@ class VoiceManager:
         meta = {
             "name": name,
             "language": language,
+            "gender": gender or "male",
             "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             "audio_file": wav_path.name,
             "original_file": audio_path.name,
@@ -270,7 +271,9 @@ class VoiceManager:
             if ref_path and os.path.exists(ref_path):
                 try:
                     from clone_engine import clone_voice
-                    local_clone = clone_voice(text=text, ref_audio_path=ref_path, language=language)
+                    profile = self.get_voice_metadata(voice_id) or {}
+                    gender = profile.get("gender", "male")
+                    local_clone = clone_voice(text=text, ref_audio_path=ref_path, language=language, gender=gender)
                     if local_clone:
                         self.last_tts_engine = "openvoice"
                         return local_clone
@@ -294,7 +297,14 @@ class VoiceManager:
 
         try:
             from gradio_client import Client, handle_file
-            client = Client("stairmoss/MimicAI")
+            hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+            if not hf_token:
+                try:
+                    import huggingface_hub
+                    hf_token = huggingface_hub.get_token()
+                except Exception:
+                    pass
+            client = Client("stairmoss/MimicAI", token=hf_token)
             res_path = client.predict(
                 ref_audio=handle_file(str(ref_path)),
                 text=text[:500],
@@ -312,10 +322,14 @@ class VoiceManager:
         remote_url = os.environ.get("REMOTE_VOICE_API", "https://stairmoss-mimicai.hf.space").rstrip("/")
         if remote_url:
             try:
+                headers = {}
+                hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+                if hf_token:
+                    headers["Authorization"] = f"Bearer {hf_token}"
                 with open(ref_path, "rb") as f:
                     files = {"audio": (os.path.basename(ref_path), f, "audio/wav")}
                     data = {"text": text[:500], "language": language}
-                    resp = requests.post(f"{remote_url}/voice/clone", files=files, data=data, timeout=15)
+                    resp = requests.post(f"{remote_url}/voice/clone", files=files, data=data, headers=headers, timeout=15)
                     if resp.status_code == 200 and len(resp.content) > 100:
                         self.last_tts_engine = "remote_zerogpu"
                         return resp.content
