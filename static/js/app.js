@@ -72,15 +72,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 function primeAudio() {
+  // Create and resume this while handling a real click/key event.  Browsers
+  // otherwise reject the delayed play() that happens after the chat/TTS
+  // requests finish, which is why Listen worked while Auto Speak was silent.
+  try {
+    if (!window._audioContext) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) window._audioContext = new AudioContext();
+    }
+    if (window._audioContext?.state === 'suspended') {
+      window._audioContext.resume().catch(() => {});
+    }
+  } catch (_) {}
+
   const sa = $('#speech-audio');
   if (sa) {
     if (!sa.src) {
       sa.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
     }
-    sa.play().then(() => { sa.pause(); }).catch(() => {});
-  }
-  if (window._audioContext && window._audioContext.state === 'suspended') {
-    window._audioContext.resume().catch(() => {});
+    const wasMuted = sa.muted;
+    sa.muted = true;
+    sa.play().then(() => {
+      sa.pause();
+      sa.currentTime = 0;
+      sa.muted = wasMuted;
+    }).catch(() => { sa.muted = wasMuted; });
   }
 }
 
@@ -559,17 +575,23 @@ async function playTts(text, btn, isAutoSpeak = false) {
       btn.disabled = false;
     }
 
+    let playbackStarted = false;
     try {
       await activeAudio.play();
+      playbackStarted = true;
     } catch (e) {
       console.warn('Autoplay prevented:', e);
       if (inlineAudio && inlineAudio !== activeAudio) {
-        try { await inlineAudio.play(); } catch (_) {}
+        try {
+          await inlineAudio.play();
+          playbackStarted = true;
+        } catch (_) {}
       }
-      if (btn) {
+      if (!playbackStarted && btn) {
         btn.innerHTML = 'Listen';
         btn.disabled = false;
       }
+      if (!playbackStarted) toast('Browser blocked automatic playback. Click Listen to allow it.', 'info');
     }
 
     if (engine) toast(`Generated via ${engine}`, 'info');
