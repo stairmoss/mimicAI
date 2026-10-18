@@ -478,21 +478,17 @@ async function playTts(text, btn, isAutoSpeak = false) {
 
   const orig = btn ? btn.innerHTML : 'Listen';
   if (btn) {
-    btn.innerHTML = '⏳ Loading…';
+    btn.innerHTML = 'Loading...';
     btn.disabled = true;
   }
 
-  let statusPill = btn?.parentElement?.querySelector('.speaking-status-pill');
-  if (!statusPill && btn?.parentElement) {
-    statusPill = document.createElement('div');
-    statusPill.className = 'speaking-status-pill loading';
-    statusPill.innerHTML = '<span>⏳ Synthesizing voice…</span>';
-    btn.parentElement.appendChild(statusPill);
-  }
+  const abortCtrl = new AbortController();
+  const abortTimer = setTimeout(() => abortCtrl.abort(), 60000);
 
   try {
     const res = await fetch(API.tts, {
       method: 'POST',
+      signal: abortCtrl.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text: text.substring(0, 500),
@@ -505,6 +501,7 @@ async function playTts(text, btn, isAutoSpeak = false) {
         speed_rate: state.voiceDesign?.speed || 1.0,
       }),
     });
+    clearTimeout(abortTimer);
 
     if (!res.ok) {
       const e = await res.json().catch(() => ({}));
@@ -532,14 +529,6 @@ async function playTts(text, btn, isAutoSpeak = false) {
     const speechAudio = $('#speech-audio');
     const activeAudio = speechAudio || inlineAudio;
 
-    if (statusPill) {
-      statusPill.className = 'speaking-status-pill';
-      statusPill.innerHTML = `
-        <span class="speaking-wave"><span></span><span></span><span></span><span></span></span>
-        <span>🔊 Speaking aloud…</span>
-      `;
-    }
-
     if (speechAudio) {
       speechAudio.src = url;
     }
@@ -547,20 +536,22 @@ async function playTts(text, btn, isAutoSpeak = false) {
     setCurrentAudio(activeAudio);
 
     const onFinish = () => {
-      if (statusPill) statusPill.remove();
       if (btn) {
-        btn.innerHTML = '▶ Replay Speech';
+        btn.innerHTML = 'Replay Speech';
         btn.disabled = false;
       }
     };
 
     activeAudio.onended = onFinish;
     activeAudio.onpause = () => {
-      if (statusPill && activeAudio.ended) statusPill.remove();
+      if (activeAudio.ended && btn) {
+        btn.innerHTML = 'Replay Speech';
+        btn.disabled = false;
+      }
     };
 
     if (btn) {
-      btn.innerHTML = '🔊 Speaking…';
+      btn.innerHTML = 'Speaking...';
       btn.disabled = false;
     }
 
@@ -571,20 +562,20 @@ async function playTts(text, btn, isAutoSpeak = false) {
       if (inlineAudio && inlineAudio !== activeAudio) {
         try { await inlineAudio.play(); } catch (_) {}
       }
-      if (statusPill) {
-        statusPill.className = 'speaking-status-pill';
-        statusPill.innerHTML = '<span>▶ Click Listen to hear speech</span>';
+      if (btn) {
+        btn.innerHTML = 'Listen';
+        btn.disabled = false;
       }
     }
 
     if (engine) toast(`Generated via ${engine}`, 'info');
   } catch (err) {
-    if (statusPill) statusPill.remove();
+    clearTimeout(abortTimer);
     if (btn) {
       btn.innerHTML = orig;
       btn.disabled = false;
     }
-    toast(err.message, 'error');
+    toast(err.name === 'AbortError' ? 'Voice request timed out' : err.message, 'error');
   }
 }
 
@@ -602,7 +593,7 @@ function renderVoiceList() {
   const list = $('#voice-list');
   list.innerHTML = '';
   if (state.voices.length === 0) {
-    list.innerHTML = '<li class="voice-empty"><div class="voice-empty-icon">🎤</div><div>No voice profiles yet.</div><div style="font-size:11px;margin-top:2px">Record a sample to enable TTS</div></li>';
+    list.innerHTML = '<li class="voice-empty"><div class="voice-empty-icon"></div><div>No voice profiles yet.</div><div style="font-size:11px;margin-top:2px">Record a sample to enable TTS</div></li>';
     return;
   }
   state.voices.forEach(v => {
@@ -616,13 +607,13 @@ function renderVoiceList() {
         <div class="voice-lang">
           ${v.language || 'en'} · 
           <span class="voice-gender-pill" title="Click to toggle Male/Female" style="cursor:pointer;padding:1px 6px;border-radius:10px;background:${isFem ? 'rgba(242,139,130,0.2)' : 'rgba(138,180,248,0.2)'};color:${isFem ? '#f28b82' : '#8ab4f8'};border:1px solid ${isFem ? '#f28b82' : '#8ab4f8'};font-size:10px;font-weight:600;">
-            ${isFem ? '♀ Female' : '♂ Male'}
+            ${isFem ? 'Female' : 'Male'}
           </span>
         </div>
       </div>
       <div class="voice-actions">
-        <button class="voice-act-btn preview" title="Preview">▶</button>
-        <button class="voice-act-btn delete" title="Delete">✕</button>
+        <button class="voice-act-btn preview" title="Preview">Play</button>
+        <button class="voice-act-btn delete" title="Delete">Del</button>
       </div>`;
     li.addEventListener('click', (e) => {
       if (e.target.closest('.voice-act-btn') || e.target.closest('.voice-gender-pill')) return;
@@ -663,7 +654,7 @@ function updateVoiceSelect() {
   state.voices.forEach(v => {
     const opt = document.createElement('option');
     opt.value = v.id;
-    opt.textContent = `🎤 ${v.name}`;
+    opt.textContent = v.name;
     sel.appendChild(opt);
   });
   if (state.selectedVoice) {
@@ -945,9 +936,7 @@ async function checkEngineStatus() {
 function toast(msg, type = 'success') {
   const c = $('#toast-container');
   const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  const icon = type === 'success' ? '✓' : type === 'error' ? '⚠' : 'ℹ';
-  t.innerHTML = `${icon} ${esc(msg)}`;
+  t.textContent = msg;
   c.appendChild(t);
   setTimeout(() => {
     t.style.opacity = '0';

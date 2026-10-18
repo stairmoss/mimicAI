@@ -270,16 +270,18 @@ class VoiceManager:
 
             ref_path = self.get_reference_audio_path(voice_id)
             if ref_path and os.path.exists(ref_path):
-                try:
-                    from clone_engine import clone_voice
-                    profile = self.get_voice_metadata(voice_id) or {}
-                    gender = profile.get("gender", "male")
-                    local_clone = clone_voice(text=text, ref_audio_path=ref_path, language=language, gender=gender)
-                    if local_clone:
-                        self.last_tts_engine = "openvoice"
-                        return local_clone
-                except Exception as exc:
-                    logger.warning(f"Local clone error: {exc}")
+                import torch
+                if torch.cuda.is_available() or not allow_fallback:
+                    try:
+                        from clone_engine import clone_voice
+                        profile = self.get_voice_metadata(voice_id) or {}
+                        gender = profile.get("gender", "male")
+                        local_clone = clone_voice(text=text, ref_audio_path=ref_path, language=language, gender=gender)
+                        if local_clone:
+                            self.last_tts_engine = "openvoice"
+                            return local_clone
+                    except Exception as exc:
+                        logger.warning(f"Local clone error: {exc}")
 
             if not allow_fallback:
                 return None
@@ -317,28 +319,33 @@ class VoiceManager:
 
         try:
             from gradio_client import Client, handle_file
-            hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
-            if not hf_token:
-                try:
-                    import huggingface_hub
-                    hf_token = huggingface_hub.get_token()
-                except Exception:
-                    pass
-            client = Client("stairmoss/MimicAI", token=hf_token)
+            if not hasattr(self, '_gradio_client') or self._gradio_client is None:
+                hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+                if not hf_token:
+                    try:
+                        import huggingface_hub
+                        hf_token = huggingface_hub.get_token()
+                    except Exception:
+                        pass
+                self._gradio_client = Client("stairmoss/MimicAI", token=hf_token)
+
+            client = self._gradio_client
             try:
-                res_path = client.predict(
+                job = client.submit(
                     ref_audio=handle_file(str(ref_path)),
                     text=text[:500],
                     gender=gender,
                     api_name="/clone"
                 )
+                res_path = job.result(timeout=3)
             except Exception as e:
                 if "gender" in str(e).lower():
-                    res_path = client.predict(
+                    job = client.submit(
                         ref_audio=handle_file(str(ref_path)),
                         text=text[:500],
                         api_name="/clone"
                     )
+                    res_path = job.result(timeout=3)
                 else:
                     raise
             if res_path and os.path.exists(res_path):
@@ -349,23 +356,6 @@ class VoiceManager:
                     return data
         except Exception as exc:
             logger.warning(f"Remote clone via Gradio client: {exc}")
-
-        remote_url = os.environ.get("REMOTE_VOICE_API", "https://stairmoss-mimicai.hf.space").rstrip("/")
-        if remote_url:
-            try:
-                headers = {}
-                hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
-                if hf_token:
-                    headers["Authorization"] = f"Bearer {hf_token}"
-                with open(ref_path, "rb") as f:
-                    files = {"audio": (os.path.basename(ref_path), f, "audio/wav")}
-                    data = {"text": text[:500], "language": language, "gender": gender}
-                    resp = requests.post(f"{remote_url}/voice/clone", files=files, data=data, headers=headers, timeout=15)
-                    if resp.status_code == 200 and len(resp.content) > 100:
-                        self.last_tts_engine = "remote_zerogpu"
-                        return resp.content
-            except Exception as exc:
-                logger.warning(f"Remote clone via HTTP: {exc}")
         return None
 
     def _generate_remote_design(self, text: str, design: dict) -> Optional[bytes]:
