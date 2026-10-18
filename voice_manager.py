@@ -270,18 +270,25 @@ class VoiceManager:
 
             ref_path = self.get_reference_audio_path(voice_id)
             if ref_path and os.path.exists(ref_path):
-                import torch
-                if torch.cuda.is_available() or not allow_fallback:
-                    try:
-                        from clone_engine import clone_voice
-                        profile = self.get_voice_metadata(voice_id) or {}
-                        gender = profile.get("gender", "male")
-                        local_clone = clone_voice(text=text, ref_audio_path=ref_path, language=language, gender=gender)
-                        if local_clone:
-                            self.last_tts_engine = "openvoice"
-                            return local_clone
-                    except Exception as exc:
-                        logger.warning(f"Local clone error: {exc}")
+                # A CPU-only installation is still able to clone a voice.  Do not
+                # silently skip it just because CUDA is unavailable: doing so
+                # turns every failed remote request into a generic TTS fallback.
+                try:
+                    from clone_engine import clone_voice
+                    profile = self.get_voice_metadata(voice_id) or {}
+                    gender = profile.get("gender", "male")
+                    local_clone = clone_voice(
+                        text=text,
+                        ref_audio_path=ref_path,
+                        language=language,
+                        gender=gender,
+                        progress_callback=progress_callback,
+                    )
+                    if local_clone:
+                        self.last_tts_engine = "openvoice"
+                        return local_clone
+                except Exception as exc:
+                    logger.warning(f"Local clone error: {exc}")
 
             if not allow_fallback:
                 return None
@@ -337,7 +344,10 @@ class VoiceManager:
                     gender=gender,
                     api_name="/clone"
                 )
-                res_path = job.result(timeout=3)
+                # ZeroGPU cold starts and queued jobs routinely take longer than
+                # three seconds.  The previous value made cloning fail almost
+                # deterministically before inference could begin.
+                res_path = job.result(timeout=int(os.environ.get("REMOTE_CLONE_TIMEOUT", "45")))
             except Exception as e:
                 if "gender" in str(e).lower():
                     job = client.submit(
@@ -345,7 +355,7 @@ class VoiceManager:
                         text=text[:500],
                         api_name="/clone"
                     )
-                    res_path = job.result(timeout=3)
+                    res_path = job.result(timeout=int(os.environ.get("REMOTE_CLONE_TIMEOUT", "45")))
                 else:
                     raise
             if res_path and os.path.exists(res_path):
@@ -356,6 +366,32 @@ class VoiceManager:
                     return data
         except Exception as exc:
             logger.warning(f"Remote clone via Gradio client: {exc}")
+
+        # Keep the REST endpoint as a second remote route.  It is particularly
+        # useful when the Gradio client cannot negotiate a queued ZeroGPU job.
+        remote_url = os.environ.get("REMOTE_VOICE_API", "https://stairmoss-mimicai.hf.space").rstrip("/")
+        if remote_url:
+            try:
+                headers = {}
+                hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+                if hf_token:
+                    headers["Authorization"] = f"Bearer {hf_token}"
+                with open(ref_path, "rb") as f:
+                    files = {"audio": (os.path.basename(ref_path), f, "audio/wav")}
+                    data = {"text": text[:500], "language": language, "gender": gender}
+                    resp = requests.post(
+                        f"{remote_url}/voice/clone",
+                        files=files,
+                        data=data,
+                        headers=headers,
+                        timeout=int(os.environ.get("REMOTE_CLONE_HTTP_TIMEOUT", "45")),
+                    )
+                if resp.status_code == 200 and len(resp.content) > 100:
+                    self.last_tts_engine = "remote_zerogpu"
+                    return resp.content
+                logger.warning("Remote clone HTTP returned status %s", resp.status_code)
+            except Exception as exc:
+                logger.warning(f"Remote clone via HTTP: {exc}")
         return None
 
     def _generate_remote_design(self, text: str, design: dict) -> Optional[bytes]:

@@ -483,7 +483,10 @@ async function playTts(text, btn, isAutoSpeak = false) {
   }
 
   const abortCtrl = new AbortController();
-  const abortTimer = setTimeout(() => abortCtrl.abort(), 60000);
+  // A queued ZeroGPU clone can take a little longer than the old one-minute
+  // client limit, especially on a cold start.  Let the server finish its clone
+  // chain before treating the request as failed.
+  const abortTimer = setTimeout(() => abortCtrl.abort(), 120000);
 
   try {
     const res = await fetch(API.tts, {
@@ -542,12 +545,13 @@ async function playTts(text, btn, isAutoSpeak = false) {
       }
     };
 
-    activeAudio.onended = onFinish;
-    activeAudio.onpause = () => {
-      if (activeAudio.ended && btn) {
-        btn.innerHTML = 'Replay Speech';
-        btn.disabled = false;
-      }
+    // setCurrentAudio owns the element event handlers, so compose the button
+    // cleanup after it has installed its playback lifecycle handlers.
+    const previousOnEnded = activeAudio.onended;
+    activeAudio.onended = () => {
+      if (previousOnEnded) previousOnEnded();
+      onFinish();
+      URL.revokeObjectURL(url);
     };
 
     if (btn) {
