@@ -109,11 +109,13 @@ class VoiceManager:
         self.voices_dir = Path(voices_dir) if voices_dir else VOICES_DIR
         self.voices_dir.mkdir(parents=True, exist_ok=True)
         self.last_tts_engine = "none"
-        try:
-            from clone_engine import preload
-            preload()
-        except Exception:
-            pass
+        self.remote_only = os.environ.get("REMOTE_ONLY", "0").strip().lower() in ("1", "true", "yes")
+        if not self.remote_only:
+            try:
+                from clone_engine import preload
+                preload()
+            except Exception:
+                pass
 
     def list_voices(self) -> List[Dict]:
         profiles = []
@@ -147,14 +149,18 @@ class VoiceManager:
         if wav_path is None:
             raise RuntimeError("Audio conversion failed. Make sure ffmpeg is installed.")
 
+        # Transcription is not needed by the remote clone API.  Loading
+        # Whisper on a free CPU web service turns a short recording into a
+        # multi-minute request (and may download a model on first use).
         ref_text = ""
-        try:
-            import whisper
-            model = whisper.load_model("base")
-            res = model.transcribe(str(wav_path))
-            ref_text = res.get("text", "").strip()
-        except Exception as exc:
-            logger.warning(f"Whisper transcription skipped: {exc}")
+        if os.environ.get("TRANSCRIBE_REFERENCE_AUDIO", "0").strip().lower() in ("1", "true", "yes"):
+            try:
+                import whisper
+                model = whisper.load_model("base")
+                res = model.transcribe(str(wav_path))
+                ref_text = res.get("text", "").strip()
+            except Exception as exc:
+                logger.warning(f"Whisper transcription skipped: {exc}")
 
         meta = {
             "name": name,
@@ -269,7 +275,7 @@ class VoiceManager:
                 return res
 
             ref_path = self.get_reference_audio_path(voice_id)
-            if ref_path and os.path.exists(ref_path):
+            if not self.remote_only and ref_path and os.path.exists(ref_path):
                 # A CPU-only installation is still able to clone a voice.  Do not
                 # silently skip it just because CUDA is unavailable: doing so
                 # turns every failed remote request into a generic TTS fallback.
@@ -292,6 +298,9 @@ class VoiceManager:
 
             if not allow_fallback:
                 return None
+
+        if self.remote_only:
+            return None
 
         # Gender-matched fallback so male speakers NEVER hear a female voice
         profile = self.get_voice_metadata(voice_id) or {} if voice_id else {}
