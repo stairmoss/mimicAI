@@ -13,13 +13,16 @@ from typing import Callable, Dict, List, Optional
 
 import numpy as np
 import requests
-import torch
 
 from clonemodel.memory_utils import free_unused_memory
 from clonemodel.preset_manager import list_presets
 from clonemodel.voice_config import check_audio_data_quality
 
 logger = logging.getLogger(__name__)
+
+
+class SynthesisBusyError(RuntimeError):
+    """Raised when the service is already synthesizing audio."""
 
 
 def _is_safe_id(profile_id: Optional[str]) -> bool:
@@ -70,6 +73,7 @@ def _load_MimicAI_full_model():
             return _mimic_full_model
         try:
             from clonemodel import MimicVoice
+            import torch
 
             m_name = os.environ.get("MimicAI_MODEL", "k2-fsa/OmniVoice")
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -94,6 +98,7 @@ def _load_MimicAI_full_model():
 
 def _float_audio_to_wav_bytes(audio, sample_rate: int) -> bytes:
     import soundfile as sf
+    import torch
 
     if isinstance(audio, torch.Tensor):
         audio = audio.detach().cpu().numpy()
@@ -110,12 +115,21 @@ class VoiceManager:
         self.voices_dir.mkdir(parents=True, exist_ok=True)
         self.last_tts_engine = "none"
         self.remote_only = os.environ.get("REMOTE_ONLY", "0").strip().lower() in ("1", "true", "yes")
-        if not self.remote_only:
+        # Loading OpenVoice and Piper together can exceed a small web-service
+        # instance before it has served its first request.  Models stay lazy by
+        # default; set PRELOAD_LOCAL_MODELS=1 only on an adequately sized plan.
+        if not self.remote_only and os.environ.get("PRELOAD_LOCAL_MODELS", "0").strip().lower() in ("1", "true", "yes"):
             try:
                 from clone_engine import preload
                 preload()
             except Exception:
                 pass
+
+        try:
+            max_syntheses = int(os.environ.get("MAX_CONCURRENT_SYNTHESIS", "1"))
+        except ValueError:
+            max_syntheses = 1
+        self._synthesis_slots = threading.BoundedSemaphore(max(1, max_syntheses))
 
     def list_voices(self) -> List[Dict]:
         profiles = []
@@ -249,6 +263,35 @@ class VoiceManager:
         progress_callback: Optional[Callable] = None,
         voice_design: Optional[dict] = None,
     ) -> Optional[bytes]:
+        # Local TTS allocates large model and audio tensors.  Serializing it
+        # keeps a traffic burst from loading or running several copies at once.
+        if not self._synthesis_slots.acquire(blocking=False):
+            raise SynthesisBusyError("Speech generation is busy; retry shortly.")
+        try:
+            return self._generate_tts(
+                text=text,
+                voice_id=voice_id,
+                language=language,
+                prefer_clone=prefer_clone,
+                lightweight=lightweight,
+                allow_fallback=allow_fallback,
+                progress_callback=progress_callback,
+                voice_design=voice_design,
+            )
+        finally:
+            self._synthesis_slots.release()
+
+    def _generate_tts(
+        self,
+        text: str,
+        voice_id: Optional[str] = None,
+        language: str = "en",
+        prefer_clone: bool = False,
+        lightweight: bool = False,
+        allow_fallback: bool = True,
+        progress_callback: Optional[Callable] = None,
+        voice_design: Optional[dict] = None,
+    ) -> Optional[bytes]:
         self.last_tts_engine = "none"
 
         if not voice_id and voice_design:
@@ -275,7 +318,11 @@ class VoiceManager:
                 return res
 
             ref_path = self.get_reference_audio_path(voice_id)
-            if not self.remote_only and ref_path and os.path.exists(ref_path):
+            # OpenVoice is substantially larger than the normal TTS model and
+            # should be an explicit opt-in on constrained hosts.  Render can
+            # use the remote clone endpoint above without keeping it in RAM.
+            local_clone_enabled = os.environ.get("LOCAL_CLONE_FALLBACK", "0").strip().lower() in ("1", "true", "yes")
+            if not self.remote_only and local_clone_enabled and ref_path and os.path.exists(ref_path):
                 # A CPU-only installation is still able to clone a voice.  Do not
                 # silently skip it just because CUDA is unavailable: doing so
                 # turns every failed remote request into a generic TTS fallback.
@@ -302,6 +349,12 @@ class VoiceManager:
         if self.remote_only:
             return None
 
+        # The hosted MimicAI API provides ordinary TTS as well.  Prefer it so
+        # the web service does not need to retain Kokoro/Piper in memory.
+        remote_tts = self._generate_remote_tts(text)
+        if remote_tts is not None:
+            return remote_tts
+
         # Gender-matched fallback so male speakers NEVER hear a female voice
         profile = self.get_voice_metadata(voice_id) or {} if voice_id else {}
         gender = profile.get("gender", "male")
@@ -323,6 +376,26 @@ class VoiceManager:
             self.last_tts_engine = "piper"
             return piper_res
 
+        return None
+
+    def _generate_remote_tts(self, text: str) -> Optional[bytes]:
+        if os.environ.get("REMOTE_TTS_ENABLED", "1").strip().lower() not in ("1", "true", "yes"):
+            return None
+        remote_url = os.environ.get("REMOTE_VOICE_API", "https://stairmoss-mimicai.hf.space").rstrip("/")
+        if not remote_url:
+            return None
+        try:
+            resp = requests.post(
+                f"{remote_url}/voice/tts",
+                json={"text": text[:500], "speed": 1.0},
+                timeout=int(os.environ.get("REMOTE_TTS_TIMEOUT", "45")),
+            )
+            if resp.status_code == 200 and len(resp.content) > 100:
+                self.last_tts_engine = "remote_zerogpu"
+                return resp.content
+            logger.warning("Remote TTS returned status %s", resp.status_code)
+        except Exception as exc:
+            logger.warning("Remote TTS failed: %s", exc)
         return None
 
     def _generate_remote_clone(self, text: str, voice_id: str, language: str = "en") -> Optional[bytes]:
@@ -484,6 +557,7 @@ class VoiceManager:
         lightweight: bool = False,
     ) -> Optional[bytes]:
         try:
+            import torch
             ref_path = self.get_reference_audio_path(voice_id)
             if not ref_path:
                 return None

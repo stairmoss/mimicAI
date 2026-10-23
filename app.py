@@ -12,7 +12,7 @@ import requests
 from flask import Flask, Response, jsonify, render_template, request
 from flask_cors import CORS
 
-from voice_manager import VoiceManager
+from voice_manager import SynthesisBusyError, VoiceManager
 from clonemodel.profile_validator import validate_profile_name, validate_audio_file_size
 from gemini_helper import is_gemini_available, GEMINI_ENDPOINT, GEMINI_MODEL, GEMINI_API_KEY
 from clonemodel.memory_utils import free_unused_memory
@@ -262,6 +262,8 @@ def text_to_speech():
             allow_fallback=allow_fallback if not prefer_clone else True,
             voice_design=design,
         )
+    except SynthesisBusyError as exc:
+        return jsonify({"error": str(exc)}), 429
     except Exception as exc:
         return _error_response(exc, "TTS generation failed")
 
@@ -467,6 +469,8 @@ def preview_voice(voice_id):
             prefer_clone=True,
             allow_fallback=True,
         )
+    except SynthesisBusyError as exc:
+        return jsonify({"error": str(exc)}), 429
     except Exception as exc:
         return _error_response(exc, "Voice preview failed")
 

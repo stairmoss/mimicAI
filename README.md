@@ -73,6 +73,26 @@ python3 app.py
 Then open your browser and go to:
 **http://127.0.0.1:8000**
 
+## Deploying on a small Render instance
+
+The web service sends clone, voice-design, and normal TTS requests to the
+hosted MimicAI inference API before considering a local model.  This avoids
+keeping several large speech models in the Render process.  It also permits
+only one synthesis operation at a time by default.
+
+For a memory-constrained instance, use these environment variables:
+
+```env
+REMOTE_TTS_ENABLED=1
+LOCAL_CLONE_FALLBACK=0
+MAX_CONCURRENT_SYNTHESIS=1
+PRELOAD_LOCAL_MODELS=0
+```
+
+Set `LOCAL_CLONE_FALLBACK=1` only after moving to an instance with sufficient
+memory for OpenVoice.  Set `PRELOAD_LOCAL_MODELS=1` only when the faster first
+local response is worth the additional idle memory.
+
 ---
 
 ## Quick Voice Cloning Guide
