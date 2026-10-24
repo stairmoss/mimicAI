@@ -1,0 +1,96 @@
+name: Build and publish release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            runner: windows-latest
+            archive: MimicAI-windows.zip
+          - platform: linux
+            runner: ubuntu-latest
+            archive: MimicAI-linux.tar.gz
+          - platform: macos
+            runner: macos-latest
+            archive: MimicAI-macos.tar.gz
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt pyinstaller
+
+      - name: Build application
+        run: python -m PyInstaller --noconfirm --clean MimicAI.spec
+
+      - name: Archive Windows build
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/MimicAI -DestinationPath ${{ matrix.archive }}
+
+      - name: Archive Unix build
+        if: matrix.platform != 'windows'
+        run: tar -C dist -czf ${{ matrix.archive }} MimicAI
+
+      - name: Upload release archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-release
+          path: ${{ matrix.archive }}
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release archives
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          tag_lower="${TAG,,}"
+          release_title="mimicai $tag_lower"
+          cat > release-notes.md <<'EOF'
+          this release has the latest mimicai application build.
+
+          please download the file based on your system:
+          - windows: download the zip file and extract it.
+          - linux: download the tar.gz file and extract it.
+          - macos: download the tar.gz file and extract it.
+
+          after extracting the file, run mimicai from the extracted folder.
+
+          thank you for using mimicai.
+          EOF
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-assets/* --clobber
+            gh release edit "$TAG" --title "$release_title" --notes-file release-notes.md
+          else
+            gh release create "$TAG" release-assets/* --title "$release_title" --notes-file release-notes.md
+          fi
